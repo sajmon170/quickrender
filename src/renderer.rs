@@ -37,32 +37,19 @@ impl Renderer {
             let obj0 = &mut self.objects[0];
 
             obj0.reset();
-            obj0.translate(Vec3::new(-0.7, 0.0, 0.0));
             obj0.rotate_x(-2.0 * 3.14159 / 4.0);
             obj0.rotate_z(time);
             obj0.scale(Vec3::new(0.6, 0.6, 0.6));
 
             obj0.set_render_pass(render_pass, &self.gpu.queue);
-
-            let obj1 = &mut self.objects[1];
-
-            obj1.reset();
-            obj1.scale(Vec3::new(0.8, 0.8, 0.8));
-            obj1.translate(Vec3::new(0.9, 0.0, 0.0));
-            obj1.rotate_x(-2.5 * 3.14159 / 4.0);
-            obj1.rotate_z(time);
-
-            obj1.set_render_pass(render_pass, &self.gpu.queue);
-
         })
     }
 
     pub fn new(gpu: Gpu) -> Self {
-        let obj1 = Object::load_obj(&gpu, &Path::new("src/res/models/sus/sus.obj")).unwrap();
-        let mut obj2 = Object::load_obj(&gpu, &Path::new("src/res/models/obamium/obamium.obj")).unwrap();
+        let obj = Object::load_obj(&gpu, &Path::new("src/res/models/sus/sus.obj")).unwrap();
         let begin = std::time::Instant::now();
 
-        Self { begin, gpu, objects: vec![obj1, obj2] }
+        Self { begin, gpu, objects: vec![obj] }
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
