@@ -57,8 +57,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) face: bool) -> @location(0) 
     let strength = 0.5;
     let normal = mix(in.normal, world_normal, strength);
     
-    let diffuse = max(0.3, dot(-light, normal)) * texture_sample;
-    //let diffuse = vec4f(world_normal, 1.0);
+    let diffuse = max(0.1, dot(-light, normal)) * texture_sample;
     
     let half_dir = normalize(normalize(in.view_direction) + normalize(light));
     let angle = max(0.0, dot(normal, half_dir));
