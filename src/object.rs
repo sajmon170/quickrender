@@ -13,9 +13,9 @@ use crate::{
 };
 
 // TODO - Generalize this to multiple materials
-struct Model {
-    mesh: Mesh,
-    material: Box<dyn Material>
+pub struct Model {
+    pub mesh: Mesh,
+    pub material: Box<dyn Material>
 }
 
 impl Model {
@@ -171,18 +171,33 @@ impl Object {
         self.0.borrow().children.get(idx).cloned()
     }
 
-    /*
-    fn print_internal(&self, level: usize) {
-        println!("{}Node: {}", "  ".repeat(level), self.get());
+    fn get_all_internal(&self, objs: &mut Vec<(Object, Mat4)>, prev_xforms: &Mat4) {
+        let current_xform = self.0.borrow().xform * prev_xforms;
+        objs.push((self.clone(), current_xform));
+
         for child in &self.0.borrow().children {
-            child.print_internal(level + 1);
+            child.get_all_internal(objs, &current_xform);
         }
     }
 
-    pub fn print(&self) {
-        self.print_internal(0);
+    pub fn get_all(&self) -> Vec<(Object, Mat4)> {
+        let mut objs = Vec::new();
+        self.get_all_internal(&mut objs, &Mat4::IDENTITY);
+
+        objs
     }
-    */
+
+    pub fn get_all_models(&self) -> Vec<(Rc<Model>, Mat4)> {
+        self.get_all()
+            .into_iter()
+            .filter_map(|(obj, xform)| {
+                match &obj.0.borrow().data {
+                    ObjectData::Model(model) => Some((model.clone(), xform)),
+                    _ => None
+                }
+            })
+            .collect()
+    }
 }
 
 
