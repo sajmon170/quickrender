@@ -5,6 +5,7 @@ mod material;
 mod mesh;
 mod data;
 mod camera;
+mod scene;
 
 use winit::{
     application::ApplicationHandler,
