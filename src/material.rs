@@ -6,12 +6,7 @@ use wgpu::{Extent3d, TexelCopyBufferLayout};
 
 // TODO - refactor camera position out of this
 pub trait Material {
-    fn set_render_pass(&self, render_pass: &mut wgpu::RenderPass, queue: &wgpu::Queue, camera: Vec3);
-    // TODO: refactor transforms out of materials into a separate bind group
-    // owned by Object
-    fn set_projection_xform(&mut self, transform: Mat4);
-    fn set_view_xform(&mut self, transform: Mat4);
-    fn set_model_xform(&mut self, transform: Mat4);
+    fn set_render_pass(&self, render_pass: &mut wgpu::RenderPass, queue: &wgpu::Queue, data: &ExternalData);
 }
 
 #[repr(C, packed)]
@@ -25,15 +20,18 @@ struct UniformData {
     pub time: f32,
 }
 
+struct ExternalData {
+    start_time: std::time::Instant,
+    projection: Mat4,
+    view: Mat4,
+    model: Mat4,
+    camera_pos: Vec3
+}
+
 pub struct SimpleMaterial {
     pipeline: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     uniform_buffer: wgpu::Buffer,
-    start_time: std::time::Instant,
-    // TODO - refactor this
-    projection: Mat4,
-    view: Mat4,
-    model: Mat4,
     texture: wgpu::Texture,
 }
 
@@ -42,7 +40,8 @@ impl SimpleMaterial {
     fn setup_bind_group(device: &wgpu::Device, uniform_buffer: &wgpu::Buffer,
                         texture: &wgpu::Texture, normal_map: &wgpu::Texture)
                         -> (wgpu::BindGroup, wgpu::PipelineLayout) {
-        let bind_group_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: "Simple material bind group layout".into(),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -86,22 +85,19 @@ impl SimpleMaterial {
                     count: None
                 }
             ]
-        };
+        });
 
-        let bind_group_layout = device.create_bind_group_layout(&bind_group_layout_descriptor);
 
-        let pipeline_descriptor = wgpu::PipelineLayoutDescriptor {
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: "Uniform buffer layout".into(),
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[]
-        };
-
-        let pipeline_layout = device.create_pipeline_layout(&pipeline_descriptor);
+        });
 
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let normal_view = normal_map.create_view(&wgpu::TextureViewDescriptor::default());
         
-        let sampler_descriptor = wgpu::SamplerDescriptor {
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: "Simple texture sampler".into(),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -110,10 +106,9 @@ impl SimpleMaterial {
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
-        };
-        let sampler = device.create_sampler(&sampler_descriptor);
+        });
 
-        let bind_group_descriptor = wgpu::BindGroupDescriptor {
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: "Bind group".into(),
             layout: &bind_group_layout,
             entries: &[
@@ -138,9 +133,7 @@ impl SimpleMaterial {
                     resource: wgpu::BindingResource::Sampler(&sampler)
                 }
             ]
-        };
-
-        let bind_group = device.create_bind_group(&bind_group_descriptor);
+        });
 
         (bind_group, pipeline_layout)
     }
@@ -287,51 +280,35 @@ impl SimpleMaterial {
             &normal_map
         );
         let pipeline = Self::make_pipeline(&gpu.device, &gpu.config, &pipeline_layout);
-        let start_time = std::time::Instant::now();
 
         Self {
             bind_group,
             uniform_buffer,
             pipeline,
-            start_time,
-            projection: Mat4::IDENTITY,
-            view: Mat4::IDENTITY,
-            model: Mat4::IDENTITY,
             texture,
         }
     }
 }
 
 impl Material for SimpleMaterial {
-    fn set_render_pass(&self, render_pass: &mut wgpu::RenderPass, queue: &wgpu::Queue, camera: Vec3) {
+    fn set_render_pass(&self, render_pass: &mut wgpu::RenderPass, queue: &wgpu::Queue, data: &ExternalData) {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.bind_group, &[]);
 
+        // TODO - set uniform buffers somewhere else instead
         let time = std::time::Instant::now()
-            .duration_since(self.start_time)
+            .duration_since(data.start_time)
             .as_secs_f32();
 
         let uniform_data = UniformData {
-            projection: self.projection,
-            view: self.view,
-            model: self.model,
-            normal: self.model.inverse().transpose(),
-            camera_pos: camera,
+            projection: data.projection,
+            view: data.view,
+            model: data.model,
+            normal: data.model.inverse().transpose(),
+            camera_pos: data.camera_pos,
             time,
         };
 
         queue.write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniform_data));
-    }
-
-    fn set_projection_xform(&mut self, transform: Mat4) {
-        self.projection = transform;
-    }
-
-    fn set_view_xform(&mut self, transform: Mat4) {
-        self.view = transform;
-    }
-
-    fn set_model_xform(&mut self, transform: Mat4) {
-        self.model = transform;
     }
 }
