@@ -1,56 +1,60 @@
-use std::{default::Default, mem::size_of, num::NonZero, path::Path};
-use crate::{data::Vertex, gpu::Gpu};
-use bytemuck::NoUninit;
-use glam::{Mat4, Vec3};
+use std::{default::Default, mem::size_of, path::Path};
+use crate::{camera::Camera, data::Vertex, globals::Globals, gpu::Gpu, object::Model};
 use wgpu::{Extent3d, TexelCopyBufferLayout};
 
-// TODO - refactor camera position out of this
 pub trait Material {
-    fn set_render_pass(&self, render_pass: &mut wgpu::RenderPass, queue: &wgpu::Queue, data: &ExternalData);
-}
-
-#[repr(C, packed)]
-#[derive(Copy, Clone, NoUninit)]
-struct UniformData {
-    pub projection: Mat4,
-    pub view: Mat4,
-    pub model: Mat4,
-    pub normal: Mat4,
-    pub camera_pos: Vec3,
-    pub time: f32,
-}
-
-struct ExternalData {
-    start_time: std::time::Instant,
-    projection: Mat4,
-    view: Mat4,
-    model: Mat4,
-    camera_pos: Vec3
+    fn as_gpu<'a>(&'a self, globals: &'a Globals, camera: &'a Camera, model: &'a Model) -> GpuMaterial<'a>;
 }
 
 pub struct SimpleMaterial {
     pipeline: wgpu::RenderPipeline,
-    bind_group: wgpu::BindGroup,
-    uniform_buffer: wgpu::Buffer,
     texture: wgpu::Texture,
+    sampler: wgpu::Sampler,
+    bind_group: wgpu::BindGroup
+}
+
+impl Material for SimpleMaterial {
+    fn as_gpu<'a>(&'a self, globals: &'a Globals, camera: &'a Camera, model: &'a Model) -> GpuMaterial {
+        GpuMaterial {
+            pipeline: &self.pipeline,
+            bind_groups: vec![
+                (0, &globals.bind_group),
+                (1, &camera.bind_group),
+                (2, &model.bind_group),
+                (3, &self.bind_group)
+            ]
+        }
+    }
+}
+
+pub struct GpuMaterial<'a> {
+    pipeline: &'a wgpu::RenderPipeline,
+    bind_groups: Vec<(u32, &'a wgpu::BindGroup)>
+}
+
+impl<'a> GpuMaterial<'a> {
+    pub fn setup(&self, render_pass: &mut wgpu::RenderPass) {
+        render_pass.set_pipeline(self.pipeline);
+        for (idx, bind_group) in &self.bind_groups {
+            render_pass.set_bind_group(*idx, *bind_group, &[]);
+        }
+    }
 }
 
 impl SimpleMaterial {
-    // TODO - refactor texture inputs into another struct
-    fn setup_bind_group(device: &wgpu::Device, uniform_buffer: &wgpu::Buffer,
-                        texture: &wgpu::Texture, normal_map: &wgpu::Texture)
-                        -> (wgpu::BindGroup, wgpu::PipelineLayout) {
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: "Simple material bind group layout".into(),
+    fn get_texture_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: "Simple material textures bind group layout".into(),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float {
+                            filterable: true
+                        },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false
                     },
                     count: None
                 },
@@ -68,74 +72,53 @@ impl SimpleMaterial {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float {
-                            filterable: true
-                        },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false
-                    },
-                    count: None
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None
                 }
             ]
+        })
+    }
+
+    fn get_pipeline_layout(device: &wgpu::Device, textures_group_layout: &wgpu::BindGroupLayout) -> wgpu::PipelineLayout {
+        let simple_entries = [
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None
+                },
+                count: None
+            }
+        ];
+
+        let global_uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: "Global uniform variables layout".into(),
+            entries: &simple_entries
         });
 
+        let camera_uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: "Camera uniform variables layout".into(),
+            entries: &simple_entries
+        });
 
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let model_uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: "Model uniform variables layout".into(),
+            entries: &simple_entries
+        });
+
+        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: "Uniform buffer layout".into(),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[
+                &global_uniform_layout,
+                &camera_uniform_layout,
+                &model_uniform_layout,
+                &textures_group_layout
+            ],
             push_constant_ranges: &[]
-        });
-
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let normal_view = normal_map.create_view(&wgpu::TextureViewDescriptor::default());
-        
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: "Simple texture sampler".into(),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: "Bind group".into(),
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &uniform_buffer,
-                        offset: 0,
-                        size: NonZero::new(size_of::<UniformData>() as u64)
-                    })
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&texture_view)
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&normal_view)
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Sampler(&sampler)
-                }
-            ]
-        });
-
-        (bind_group, pipeline_layout)
+        })
     }
  
     fn make_pipeline(device: &wgpu::Device,
@@ -203,18 +186,6 @@ impl SimpleMaterial {
         })
     }
 
-    fn make_uniform_buffer(device: &wgpu::Device) -> wgpu::Buffer {
-        let descriptor = wgpu::BufferDescriptor {
-            label: "Uniform buffer".into(),
-            // TODO: round the size to a multiple of 4 f32 values
-            size: size_of::<UniformData>() as u64,
-            mapped_at_creation: false,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM
-        };
-
-        device.create_buffer(&descriptor)
-    }
-
     fn make_texture(device: &wgpu::Device, queue: &wgpu::Queue,
                     path: &Path, format: wgpu::TextureFormat) -> wgpu::Texture {
         let texture_bytes = std::fs::read(path).unwrap();
@@ -260,7 +231,6 @@ impl SimpleMaterial {
     }
     
     pub fn new(gpu: &Gpu, texture_path: &Path, normal_path: &Path) -> Self {
-        let uniform_buffer = Self::make_uniform_buffer(&gpu.device);
         let texture = Self::make_texture(
             &gpu.device,
             &gpu.queue,
@@ -273,42 +243,59 @@ impl SimpleMaterial {
             normal_path,
             wgpu::TextureFormat::Rgba8Unorm
         );
-        let (bind_group, pipeline_layout) = Self::setup_bind_group(
-            &gpu.device,
-            &uniform_buffer,
-            &texture,
-            &normal_map
+        let texture_bind_group_layout = Self::get_texture_bind_group_layout(
+            &gpu.device
         );
-        let pipeline = Self::make_pipeline(&gpu.device, &gpu.config, &pipeline_layout);
+
+        let pipeline = gpu.get_render_pipelines()
+            .entry("Simple texture pipeline".into())
+            .or_insert_with(|| {
+                let pipeline_layout = Self::get_pipeline_layout(
+                    &gpu.device,
+                    &texture_bind_group_layout
+                );
+                Self::make_pipeline(&gpu.device, &gpu.config, &pipeline_layout)
+            })
+            .clone();
+
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let normal_view = normal_map.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let sampler = gpu.device.create_sampler(&wgpu::SamplerDescriptor {
+            label: "Simple texture sampler".into(),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: "Simple material texture data bind group".into(),
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view)
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&normal_view)
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&sampler)
+                }
+            ]
+        });
 
         Self {
-            bind_group,
-            uniform_buffer,
             pipeline,
             texture,
+            sampler,
+            bind_group,
         }
-    }
-}
-
-impl Material for SimpleMaterial {
-    fn set_render_pass(&self, render_pass: &mut wgpu::RenderPass, queue: &wgpu::Queue, data: &ExternalData) {
-        render_pass.set_pipeline(&self.pipeline);
-        render_pass.set_bind_group(0, &self.bind_group, &[]);
-
-        // TODO - set uniform buffers somewhere else instead
-        let time = std::time::Instant::now()
-            .duration_since(data.start_time)
-            .as_secs_f32();
-
-        let uniform_data = UniformData {
-            projection: data.projection,
-            view: data.view,
-            model: data.model,
-            normal: data.model.inverse().transpose(),
-            camera_pos: data.camera_pos,
-            time,
-        };
-
-        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniform_data));
     }
 }

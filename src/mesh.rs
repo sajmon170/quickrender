@@ -2,10 +2,9 @@ use std::mem::size_of;
 use crate::{Gpu, data::Vertex};
 
 pub struct Mesh {
-    vertices: Vec<Vertex>,
-    indices: Vec<u32>,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
+    vtx_count: u32
 }
 
 impl Mesh {
@@ -40,14 +39,13 @@ impl Mesh {
         Self {
             vertex_buffer,
             index_buffer,
-            vertices,
-            indices,
+            vtx_count: indices.len() as u32,
         }
     }
 
     pub fn set_render_pass(&self, render_pass: &mut wgpu::RenderPass) {
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
+        render_pass.draw_indexed(0..self.vtx_count, 0, 0..1);
     }
 }

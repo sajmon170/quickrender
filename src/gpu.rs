@@ -1,6 +1,8 @@
 use winit::{window::Window, dpi::PhysicalSize};
 use anyhow::Result;
 use std::sync::Arc;
+use std::collections::HashMap;
+use std::cell::{RefCell, RefMut};
 
 pub struct Gpu {
     window: Arc<Window>,
@@ -10,6 +12,8 @@ pub struct Gpu {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
+    // TODO - replace refcell with mut reference to gpu
+    pub render_pipelines: RefCell<HashMap<String, wgpu::RenderPipeline>>
 }
 
 impl Gpu {
@@ -47,7 +51,7 @@ impl Gpu {
     fn get_limits() -> wgpu::Limits {
         let mut limits = wgpu::Limits::defaults();
         limits.max_vertex_attributes = 5;
-        limits.max_bind_groups = 1;
+        limits.max_bind_groups = 4;
 
         limits
     }
@@ -133,7 +137,12 @@ impl Gpu {
             device,
             queue,
             config,
+            render_pipelines: Default::default()
         })
+    }
+
+    pub fn get_render_pipelines(&self) -> RefMut<HashMap<String, wgpu::RenderPipeline>> {
+        self.render_pipelines.borrow_mut()
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
@@ -154,7 +163,7 @@ impl Gpu {
             });
 
         {
-            let bg_rgb = [0, 0, 0]
+            let bg_rgb = [255, 255, 255]
                 .map(|x| x as f64 / 255.0) // Normalize
                 .map(|x| x.powf(2.2)); // Convert to sRGB
             
