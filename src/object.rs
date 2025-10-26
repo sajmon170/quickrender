@@ -1,167 +1,197 @@
+use std::ops::Deref;
 use std::path::Path;
 
 use glam::{Mat4, Vec3, Vec4};
 use tobj::LoadError;
 
+use bytemuck::NoUninit;
+use std::num::NonZero;
+
+use std::rc::{Rc, Weak};
+use std::cell::{Ref, RefCell};
+
+use crate::camera::Camera;
 use crate::{
-    data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh
+    data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, model::Model
 };
 
-// Refactor: Create a Camera entity that renders objects and provides
-// view and projection transforms. Create a Scene entity that stores
-// camera and objects
-
-// TODO - Remove this struct later
-struct Renderable {
-    mesh: Mesh,
-    material: Box<dyn Material>
+pub enum ObjectData {
+    Empty,
+    Model(Rc<Model>),
+    Camera(Rc<Camera>)
 }
 
-pub struct Object {
-    objs: Vec<Renderable>,
-    // Refactor this
-    projection_xform: Mat4,
-    view_xform: Mat4,
-    model_xform: Mat4,
+struct ObjectInternal {
+    xform: Mat4,
+    data: ObjectData,
+    parent: Weak<RefCell<ObjectInternal>>,
+    children: Vec<Object>
+}
+
+#[derive(Clone)]
+pub struct Object(Rc<RefCell<ObjectInternal>>);
+
+// TODO - implement ObjectRef with Weak
+
+impl From<ObjectData> for Object {
+    fn from(data: ObjectData) -> Object {
+        Object::new(data)
+    }
+}
+
+impl From<Camera> for ObjectData {
+    fn from(camera: Camera) -> ObjectData {
+        ObjectData::Camera(Rc::new(camera))
+    }
+}
+
+impl From<Camera> for Object {
+    fn from(camera: Camera) -> Object {
+        Object::new(camera.into())
+    }
+}
+
+impl From<Model> for ObjectData {
+    fn from(model: Model) -> ObjectData {
+        ObjectData::Model(Rc::new(model))
+    }
+}
+
+impl From<Model> for Object {
+    fn from(model: Model) -> Object {
+        Object::new(model.into())
+    }
 }
 
 impl Object {
-    fn make_projection_matrix() -> Mat4 {
-        let fov = 45.0 * std::f32::consts::PI / 180.0;
-        let ratio = 640.0/480.0;
-        let near = 0.01;
-        let far = 100.0;
-        
-        Mat4::perspective_lh(fov, ratio, near, far)
+    pub fn new(data: ObjectData) -> Self {
+        Self(Rc::new(RefCell::new(ObjectInternal {
+            data,
+            xform: Default::default(),
+            parent: Weak::new(),
+            children: Vec::new()
+        })))
     }
 
-    const CAMERA_POS: Vec3 = Vec3::new(0.0, 0.0, 3.0); 
-
-    fn make_view_matrix() -> Mat4 {
-        Mat4::from_translation(Self::CAMERA_POS)
+    pub fn empty() -> Self {
+        Self::new(ObjectData::Empty)
     }
 
-    fn fill_tangents(mut a: Vertex, mut b: Vertex, mut c: Vertex)
-                     -> (Vertex, Vertex, Vertex) {
-        let e_pos_b = glam::Vec3::from(b.pos) - glam::Vec3::from(a.pos);
-        let e_pos_c = glam::Vec3::from(c.pos) - glam::Vec3::from(a.pos);
-
-        let e_uv_b = glam::Vec2::from(b.uv) - glam::Vec2::from(a.uv);
-        let e_uv_c = glam::Vec2::from(c.uv) - glam::Vec2::from(a.uv);
-
-        let mut t_vec = (e_pos_b * e_uv_c.y - e_pos_c * e_uv_b.y).normalize();
-        let mut b_vec = (e_pos_c * e_uv_b.x - e_pos_b * e_uv_c.x).normalize();
-
-        for vtx in [&mut a, &mut b, &mut c] {
-            vtx.tangent = t_vec.into();
-            vtx.bitangent = b_vec.into();
-        }
-
-        (a, b, c)
+    pub fn with_children(self, children: Vec<Object>) -> Self {
+        self.0.borrow_mut().children = children;
+        self
+    }
+    
+    pub fn set(&mut self, xform: Mat4) {
+        self.0.borrow_mut().xform = xform;
     }
 
-    pub fn load_obj(gpu: &Gpu, path: &Path) -> Result<Self, LoadError> {
-        let (models, materials) = tobj::load_obj(&path, &tobj::GPU_LOAD_OPTIONS)?;
-        let materials = materials.unwrap();
-        let mut objs = Vec::<Renderable>::new();
- 
-        for model in models.iter() {
-            let mut vertices: Vec<_> = model.mesh.positions.chunks_exact(3)
-                .zip(model.mesh.normals.chunks_exact(3))
-                .zip(model.mesh.texcoords.chunks_exact(2))
-                .map(|((pos, normal), uv)| Vertex {
-                    pos: [pos[0], -pos[2], pos[1]],
-                    normal: [normal[0], normal[1], normal[2]],
-                    uv: [uv[0], 1.0 - uv[1]],
-                    ..Default::default()
-                })
-                .collect();
+    pub fn get(&self) -> impl Deref<Target = ObjectData> + '_ {
+        Ref::map(self.0.borrow(), |borrow| &borrow.data)
+    }
 
-            // TODO - refactor texture extraction code
-
-            let texture_path = if let Some(id) = model.mesh.material_id
-                && let Some(diffuse) = &materials[id].diffuse_texture {
-                diffuse
+    pub fn add_child(&self, obj: Object) {
+        self.0.borrow_mut().children.push(obj);
+            /*
+            Self(Rc::new(RefCell::new(ObjectInternal{
+                parent: Rc::downgrade(&self.0),
+                data,
+                xform: Mat4::default(),
+                children: Vec::new()
             }
-            else {
-                &"src/res/star.png".into()
-            };
+        ))));*/
+    }
 
-            let normal_path = if let Some(id) = model.mesh.material_id
-                && let Some(normal) = &materials[id].normal_texture {
-                if let Some("-bm") = normal.split_whitespace().next() {
-                    normal.splitn(3, " ").last().unwrap()
+    pub fn get_child(&self, idx: usize) -> Option<Self> {
+        self.0.borrow().children.get(idx).cloned()
+    }
+
+    fn get_all_internal(&self, objs: &mut Vec<(Object, Mat4)>, prev_xforms: &Mat4) {
+        let current_xform = self.0.borrow().xform * prev_xforms;
+        objs.push((self.clone(), current_xform));
+
+        for child in &self.0.borrow().children {
+            child.get_all_internal(objs, &current_xform);
+        }
+    }
+
+    pub fn get_all(&self) -> Vec<(Object, Mat4)> {
+        let mut objs = Vec::new();
+        self.get_all_internal(&mut objs, &Mat4::IDENTITY);
+
+        objs
+    }
+
+    pub fn get_all_models(&self) -> Vec<(Rc<Model>, Mat4)> {
+        self.get_all()
+            .into_iter()
+            .filter_map(|(obj, xform)| {
+                match &obj.0.borrow().data {
+                    ObjectData::Model(model) => Some((model.clone(), xform)),
+                    _ => None
                 }
-                else {
-                    normal
-                }
-            }
-            else {
-                "src/res/star.png"
-            };
-
-            let material = Box::new(SimpleMaterial::new(&gpu,
-                                                        &Path::new(texture_path),
-                                                        &Path::new(normal_path)));
-
-
-            for point_idx in model.mesh.indices.chunks_exact(3) {
-                let (a, b, c) = Self::fill_tangents(
-                    vertices[point_idx[0] as usize],
-                    vertices[point_idx[1] as usize],
-                    vertices[point_idx[2] as usize]
-                );
-
-                vertices[point_idx[0] as usize] = a;
-                vertices[point_idx[1] as usize] = b;
-                vertices[point_idx[2] as usize] = c;
-            }
-            
-            let mesh = Mesh::new(gpu, vertices, model.mesh.indices.clone());
-
-            objs.push(Renderable { mesh, material });
-        }
-
-        Ok(Self {
-            objs,
-            projection_xform: Self::make_projection_matrix(),
-            view_xform: Self::make_view_matrix(),
-            model_xform: Mat4::IDENTITY
-        })
+            })
+            .collect()
     }
 
-    pub fn set_render_pass(&mut self, render_pass: &mut wgpu::RenderPass, queue: &wgpu::Queue) {
-        for Renderable { mesh, material } in &mut self.objs {
-            material.set_projection_xform(self.projection_xform);
-            material.set_view_xform(self.view_xform);
-            material.set_model_xform(self.model_xform);
-            material.set_render_pass(render_pass, queue, Self::CAMERA_POS);
-            
-            mesh.set_render_pass(render_pass);
-        }
+    pub fn get_all_cameras(&self) -> Vec<(Rc<Camera>, Mat4)> {
+        self.get_all()
+            .into_iter()
+            .filter_map(|(obj, xform)| {
+                match &obj.0.borrow().data {
+                    ObjectData::Camera(camera) => Some((camera.clone(), xform)),
+                    _ => None
+                }
+            })
+            .collect()
     }
 
     pub fn translate(&mut self, translation: Vec3) {
-        self.model_xform *= Mat4::from_translation(translation);
+        self.0.borrow_mut().xform *= Mat4::from_translation(translation);
+    }
+
+    pub fn with_translation(mut self, translation: Vec3) -> Self {
+        self.translate(translation);
+        self
     }
 
     pub fn rotate_x(&mut self, rotation: f32) {
-        self.model_xform *= Mat4::from_rotation_x(rotation);
+        self.0.borrow_mut().xform *= Mat4::from_rotation_x(rotation);
+    }
+
+    pub fn with_rotation_x(mut self, rotation: f32) -> Self {
+        self.rotate_x(rotation);
+        self
     }
 
     pub fn rotate_y(&mut self, rotation: f32) {
-        self.model_xform *= Mat4::from_rotation_y(rotation);
+        self.0.borrow_mut().xform *= Mat4::from_rotation_y(rotation);
+    }
+
+    pub fn with_rotation_y(mut self, rotation: f32) -> Self {
+        self.rotate_y(rotation);
+        self
     }
 
     pub fn rotate_z(&mut self, rotation: f32) {
-        self.model_xform *= Mat4::from_rotation_z(rotation);
+        self.0.borrow_mut().xform *= Mat4::from_rotation_z(rotation);
+    }
+
+    pub fn with_rotation_z(mut self, rotation: f32) -> Self {
+        self.rotate_z(rotation);
+        self
     }
 
     pub fn scale(&mut self, scale: Vec3) {
-        self.model_xform *= Mat4::from_scale(scale);
+        self.0.borrow_mut().xform *= Mat4::from_scale(scale);
+    }
+
+    pub fn with_scale(mut self, scale: Vec3) -> Self {
+        self.scale(scale);
+        self
     }
 
     pub fn reset(&mut self) {
-        self.model_xform = Mat4::IDENTITY;
+        self.0.borrow_mut().xform = Mat4::IDENTITY;
     }
 }

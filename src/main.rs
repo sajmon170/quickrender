@@ -3,8 +3,19 @@ mod renderer;
 mod object;
 mod material;
 mod mesh;
+mod model;
 mod data;
+mod camera;
+mod scene;
+mod globals;
 
+use std::{path::Path, rc::Rc};
+
+use camera::Camera;
+use glam::{Mat4, Vec3};
+use object::{Object, ObjectData};
+use model::Model;
+use scene::Scene;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -33,7 +44,16 @@ impl ApplicationHandler for App {
 
         let window = event_loop.create_window(attrs).unwrap();
         let gpu = pollster::block_on(Gpu::new(window, size)).unwrap();
-        self.renderer = Some(Renderer::new(gpu));
+
+        let scene = Scene::new(vec![
+            Model::load_obj(&gpu, &Path::new("src/res/models/sus/sus.obj"))
+                .unwrap()
+                .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0),
+            Camera::new(&gpu)
+                .with_translation(Vec3::new(-2.0, 0.0, 6.0))
+        ]);
+
+        self.renderer = Some(Renderer::new(gpu, scene));
     }
 
     fn window_event(
