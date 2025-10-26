@@ -1,4 +1,4 @@
-use crate::{globals::Globals, gpu::Gpu, material::SimpleMaterial, mesh::Mesh, object::{Model, Object, ObjectData}, scene::Scene};
+use crate::{globals::Globals, gpu::Gpu, material::SimpleMaterial, mesh::Mesh, object::{Object, ObjectData}, scene::Scene, model::Model};
 use winit::dpi::PhysicalSize;
 use anyhow::Result;
 use glam::{Vec2, Vec3};

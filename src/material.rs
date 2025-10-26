@@ -1,5 +1,5 @@
 use std::{default::Default, mem::size_of, path::Path};
-use crate::{camera::Camera, data::Vertex, globals::Globals, gpu::Gpu, object::Model};
+use crate::{camera::Camera, data::Vertex, globals::Globals, gpu::Gpu, model::Model};
 use wgpu::{Extent3d, TexelCopyBufferLayout};
 
 pub trait Material {

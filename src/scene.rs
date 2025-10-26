@@ -5,7 +5,7 @@ use tobj::LoadError;
 use std::rc::Rc;
 
 use crate::{
-    camera::Camera, data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, object::{Object, ObjectData, Model}
+    camera::Camera, data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, object::{Object, ObjectData}, model::Model
 };
 
 pub struct Scene {

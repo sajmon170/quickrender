@@ -3,6 +3,7 @@ mod renderer;
 mod object;
 mod material;
 mod mesh;
+mod model;
 mod data;
 mod camera;
 mod scene;
@@ -12,7 +13,8 @@ use std::{path::Path, rc::Rc};
 
 use camera::Camera;
 use glam::{Mat4, Vec3};
-use object::{Model, Object, ObjectData};
+use object::{Object, ObjectData};
+use model::Model;
 use scene::Scene;
 use winit::{
     application::ApplicationHandler,
@@ -49,7 +51,9 @@ impl ApplicationHandler for App {
 
         // add an as_object method for ObjectData
 
-        let obj = Model::load_obj(&gpu, &Path::new("src/res/models/sus/sus.obj")).unwrap();
+        let mut obj = Model::load_obj(&gpu, &Path::new("src/res/models/sus/sus.obj")).unwrap();
+        obj.rotate_x(-2.0 * 3.14159 / 4.0);
+        
         let camera_inner = Rc::new(Camera::new(&gpu));
         let mut scene = Scene::new();
         scene.set_camera(&camera_inner);
