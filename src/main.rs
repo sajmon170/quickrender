@@ -5,7 +5,15 @@ mod material;
 mod mesh;
 mod data;
 mod camera;
+mod scene;
+mod globals;
 
+use std::{path::Path, rc::Rc};
+
+use camera::Camera;
+use glam::{Mat4, Vec3};
+use object::{Model, Object, ObjectData};
+use scene::Scene;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -34,7 +42,24 @@ impl ApplicationHandler for App {
 
         let window = event_loop.create_window(attrs).unwrap();
         let gpu = pollster::block_on(Gpu::new(window, size)).unwrap();
-        self.renderer = Some(Renderer::new(gpu));
+
+        // TODO - fix adding objects
+        // TODO - add camera position to constructor
+        // TODO - add position setting inside constructor
+
+        // add an as_object method for ObjectData
+
+        let obj = Model::load_obj(&gpu, &Path::new("src/res/models/sus/sus.obj")).unwrap();
+        let camera_inner = Rc::new(Camera::new(&gpu));
+        let mut scene = Scene::new();
+        scene.set_camera(&camera_inner);
+
+        let mut camera = Object::new(ObjectData::Camera(camera_inner), Mat4::default());
+        camera.translate(Vec3::new(-2.0, 0.0, 6.0));
+        scene.root.add_child(obj);
+        scene.root.add_child(camera);
+
+        self.renderer = Some(Renderer::new(gpu, scene));
     }
 
     fn window_event(

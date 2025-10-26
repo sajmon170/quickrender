@@ -1,55 +1,40 @@
-use crate::{gpu::Gpu, material::SimpleMaterial, mesh::Mesh, object::Object};
+use crate::{globals::Globals, gpu::Gpu, material::SimpleMaterial, mesh::Mesh, object::{Model, Object, ObjectData}, scene::Scene};
 use winit::dpi::PhysicalSize;
 use anyhow::Result;
 use glam::{Vec2, Vec3};
-use std::path::Path;
+use std::{ops::Deref, path::Path};
 
 pub struct Renderer {
-    begin: std::time::Instant,
     gpu: Gpu,
-    objects: Vec<Object>
+    scene: Scene,
+    globals: Globals
 }
 
 impl Renderer {
     pub fn render(&mut self) -> Result<()> {
+        self.globals.update_globals(&self.gpu);
         self.gpu.render(|render_pass| {
-            /*
-            for object in &mut self.objects {
-                let time = std::time::Instant::now()
-                    .duration_since(self.begin.clone())
-                    .as_secs_f32();
-
-                object.reset();
-                //object.translate(Vec3::new(0.0, 0.0, 2.0));
-                object.rotate_x(-2.0 * 3.14159 / 4.0);
-                object.rotate_z(time);
-                object.scale(Vec3::new(0.7, 0.7, 0.7));
-                //object.translate(Vec3::new(1.0, 0.0, 0.0));
-                
-                object.set_render_pass(render_pass, &self.gpu.queue);
+            for (obj, xform) in self.scene.root.get_all() {
+                match obj.get().deref() {
+                    ObjectData::Model(model) => {
+                        model.update_model_uniform(&self.gpu, xform);
+                        model.material
+                            .as_gpu(&self.globals, &self.scene.get_camera(), &model)
+                            .setup(render_pass);
+                        model.mesh.set_render_pass(render_pass);
+                    },
+                    ObjectData::Camera(camera) => {
+                        camera.update_camera_uniform(&self.gpu, xform, 640.0/480.0);
+                    },
+                    _ => {}
+                }
             }
-            */
-
-            let time = std::time::Instant::now()
-                .duration_since(self.begin.clone())
-                .as_secs_f32();
-
-            let obj0 = &mut self.objects[0];
-
-            obj0.reset();
-            obj0.rotate_x(-2.0 * 3.14159 / 4.0);
-            obj0.rotate_z(time);
-            obj0.scale(Vec3::new(0.6, 0.6, 0.6));
-
-            obj0.set_render_pass(render_pass, &self.gpu.queue);
         })
     }
 
-    pub fn new(gpu: Gpu) -> Self {
-        let obj = Object::load_obj(&gpu, &Path::new("src/res/models/sus/sus.obj")).unwrap();
-        let begin = std::time::Instant::now();
-
-        Self { begin, gpu, objects: vec![obj] }
+    pub fn new(gpu: Gpu, scene: Scene) -> Self {
+        let globals = Globals::new(&gpu);
+        Self { gpu, scene, globals }
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {

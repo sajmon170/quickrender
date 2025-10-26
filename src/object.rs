@@ -4,6 +4,9 @@ use std::path::Path;
 use glam::{Mat4, Vec3, Vec4};
 use tobj::LoadError;
 
+use bytemuck::NoUninit;
+use std::num::NonZero;
+
 use std::rc::{Rc, Weak};
 use std::cell::{Ref, RefCell};
 
@@ -12,10 +15,19 @@ use crate::{
     data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh
 };
 
+#[repr(C, packed)]
+#[derive(Copy, Clone, NoUninit)]
+struct ModelUniform {
+    pub model: Mat4,
+    pub normal: Mat4
+}
+
 // TODO - Generalize this to multiple materials
 pub struct Model {
     pub mesh: Mesh,
-    pub material: Box<dyn Material>
+    pub material: Box<dyn Material>,
+    model_uniform: wgpu::Buffer,
+    pub bind_group: wgpu::BindGroup
 }
 
 impl Model {
@@ -36,6 +48,51 @@ impl Model {
         }
 
         (a, b, c)
+    }
+
+    pub fn new(gpu: &Gpu, mesh: Mesh, material: Box<dyn Material>) -> Self {
+        let model_uniform = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Model uniform buffer"),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            size: size_of::<ModelUniform>() as u64,
+            mapped_at_creation: false
+        });
+        
+        let model_uniform_layout = gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: "Model uniform variables layout".into(),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None
+                },
+                count: None
+            }]
+        });
+
+        let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: "Model uniform bind group".into(),
+            layout: &model_uniform_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &model_uniform,
+                        offset: 0,
+                        size: NonZero::new(size_of::<ModelUniform>() as u64)
+                    })
+                }
+            ]
+        });
+
+        Self {
+            mesh,
+            material,
+            model_uniform,
+            bind_group
+        }
     }
 
     pub fn load_obj(gpu: &Gpu, path: &Path) -> Result<Object, LoadError> {
@@ -97,15 +154,24 @@ impl Model {
             
             let mesh = Mesh::new(gpu, vertices, model.mesh.indices.clone());
 
-            objs.push(Model { mesh, material });
+            objs.push(Self::new(&gpu, mesh, material));
         }
 
         let result = Object::empty();
         for model in objs {
-            result.add_child(ObjectData::Model(Rc::new(model)));
+            result.add_child(Object::new(ObjectData::Model(Rc::new(model)), Mat4::default()));
         }
 
         Ok(result)
+    }
+
+    pub fn update_model_uniform(&self, gpu: &Gpu, xform: glam::Mat4) {
+        let uniform_data = ModelUniform {
+            model: xform,
+            normal: xform.inverse().transpose()
+        };
+
+        gpu.queue.write_buffer(&self.model_uniform, 0, bytemuck::bytes_of(&uniform_data));
     }
 }
 
@@ -128,23 +194,21 @@ pub struct Object(Rc<RefCell<ObjectInternal>>);
 // TODO - implement ObjectRef with Weak
 
 impl Object {
-    pub fn new(data: ObjectData) -> Self {
+    pub fn new(data: ObjectData, xform: Mat4) -> Self {
         Self(Rc::new(RefCell::new(ObjectInternal {
             data,
-            xform: Mat4::default(),
+            xform,
             parent: Weak::new(),
             children: Vec::new()
         })))
     }
 
     pub fn empty() -> Self {
-        Self::new(ObjectData::Empty)
+        Self::new(ObjectData::Empty, Mat4::default())
     }
 
-    pub fn with_children(self, children: Vec<ObjectData>) -> Self {
-        for child in children {
-            self.add_child(child);
-        }
+    pub fn with_children(self, children: Vec<Object>) -> Self {
+        self.0.borrow_mut().children = children;
         self
     }
     
@@ -156,15 +220,16 @@ impl Object {
         Ref::map(self.0.borrow(), |borrow| &borrow.data)
     }
 
-    pub fn add_child(&self, data: ObjectData) {
-        self.0.borrow_mut().children.push(
+    pub fn add_child(&self, obj: Object) {
+        self.0.borrow_mut().children.push(obj);
+            /*
             Self(Rc::new(RefCell::new(ObjectInternal{
                 parent: Rc::downgrade(&self.0),
                 data,
                 xform: Mat4::default(),
                 children: Vec::new()
             }
-        ))));
+        ))));*/
     }
 
     pub fn get_child(&self, idx: usize) -> Option<Self> {
