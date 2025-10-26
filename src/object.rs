@@ -33,6 +33,36 @@ pub struct Object(Rc<RefCell<ObjectInternal>>);
 
 // TODO - implement ObjectRef with Weak
 
+impl From<ObjectData> for Object {
+    fn from(data: ObjectData) -> Object {
+        Object::new(data)
+    }
+}
+
+impl From<Camera> for ObjectData {
+    fn from(camera: Camera) -> ObjectData {
+        ObjectData::Camera(Rc::new(camera))
+    }
+}
+
+impl From<Camera> for Object {
+    fn from(camera: Camera) -> Object {
+        Object::new(camera.into())
+    }
+}
+
+impl From<Model> for ObjectData {
+    fn from(model: Model) -> ObjectData {
+        ObjectData::Model(Rc::new(model))
+    }
+}
+
+impl From<Model> for Object {
+    fn from(model: Model) -> Object {
+        Object::new(model.into())
+    }
+}
+
 impl Object {
     pub fn new(data: ObjectData) -> Self {
         Self(Rc::new(RefCell::new(ObjectInternal {
