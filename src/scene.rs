@@ -14,10 +14,16 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new() -> Self {
+    pub fn new(objs: Vec<Object>) -> Self {
+        let root = Object::empty().with_children(objs);
+        let camera = root.get_all_cameras()
+            .first()
+            .map(|(camera, _)| Rc::downgrade(camera))
+            .unwrap_or_default();
+        
         Self {
-            root: Object::empty(),
-            camera: Default::default()
+            root,
+            camera
         }
     }
     
