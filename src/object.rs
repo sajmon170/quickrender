@@ -104,6 +104,18 @@ impl Object {
             .collect()
     }
 
+    pub fn get_all_cameras(&self) -> Vec<(Rc<Camera>, Mat4)> {
+        self.get_all()
+            .into_iter()
+            .filter_map(|(obj, xform)| {
+                match &obj.0.borrow().data {
+                    ObjectData::Camera(camera) => Some((camera.clone(), xform)),
+                    _ => None
+                }
+            })
+            .collect()
+    }
+
     pub fn translate(&mut self, translation: Vec3) {
         self.0.borrow_mut().xform *= Mat4::from_translation(translation);
     }
