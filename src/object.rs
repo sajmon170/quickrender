@@ -103,28 +103,50 @@ impl Object {
             })
             .collect()
     }
-}
 
-
-impl Object {
-   pub fn translate(&mut self, translation: Vec3) {
+    pub fn translate(&mut self, translation: Vec3) {
         self.0.borrow_mut().xform *= Mat4::from_translation(translation);
+    }
+
+    pub fn with_translation(mut self, translation: Vec3) -> Self {
+        self.translate(translation);
+        self
     }
 
     pub fn rotate_x(&mut self, rotation: f32) {
         self.0.borrow_mut().xform *= Mat4::from_rotation_x(rotation);
     }
 
+    pub fn with_rotation_x(mut self, rotation: f32) -> Self {
+        self.rotate_x(rotation);
+        self
+    }
+
     pub fn rotate_y(&mut self, rotation: f32) {
         self.0.borrow_mut().xform *= Mat4::from_rotation_y(rotation);
+    }
+
+    pub fn with_rotation_y(mut self, rotation: f32) -> Self {
+        self.rotate_y(rotation);
+        self
     }
 
     pub fn rotate_z(&mut self, rotation: f32) {
         self.0.borrow_mut().xform *= Mat4::from_rotation_z(rotation);
     }
 
+    pub fn with_rotation_z(mut self, rotation: f32) -> Self {
+        self.rotate_z(rotation);
+        self
+    }
+
     pub fn scale(&mut self, scale: Vec3) {
         self.0.borrow_mut().xform *= Mat4::from_scale(scale);
+    }
+
+    pub fn with_scale(mut self, scale: Vec3) -> Self {
+        self.scale(scale);
+        self
     }
 
     pub fn reset(&mut self) {
