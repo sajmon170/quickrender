@@ -45,23 +45,13 @@ impl ApplicationHandler for App {
         let window = event_loop.create_window(attrs).unwrap();
         let gpu = pollster::block_on(Gpu::new(window, size)).unwrap();
 
-        // TODO - fix adding objects
-        // TODO - add camera position to constructor
-        // TODO - add position setting inside constructor
-
-        // add an as_object method for ObjectData
-
-        let mut obj = Model::load_obj(&gpu, &Path::new("src/res/models/sus/sus.obj")).unwrap();
-        obj.rotate_x(-2.0 * 3.14159 / 4.0);
-        
-        let camera_inner = Rc::new(Camera::new(&gpu));
-        let mut scene = Scene::new();
-        scene.set_camera(&camera_inner);
-
-        let mut camera = Object::new(ObjectData::Camera(camera_inner), Mat4::default());
-        camera.translate(Vec3::new(-2.0, 0.0, 6.0));
-        scene.root.add_child(obj);
-        scene.root.add_child(camera);
+        let scene = Scene::new(vec![
+            Model::load_obj(&gpu, &Path::new("src/res/models/sus/sus.obj"))
+                .unwrap()
+                .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0),
+            Object::new(ObjectData::Camera(Rc::new(Camera::new(&gpu))), Default::default())
+                .with_translation(Vec3::new(-2.0, 0.0, 6.0))
+        ]);
 
         self.renderer = Some(Renderer::new(gpu, scene));
     }
