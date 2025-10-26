@@ -159,7 +159,7 @@ impl Model {
 
         let result = Object::empty();
         for model in objs {
-            result.add_child(Object::new(ObjectData::Model(Rc::new(model)), Mat4::default()));
+            result.add_child(Object::new(ObjectData::Model(Rc::new(model))));
         }
 
         Ok(result)

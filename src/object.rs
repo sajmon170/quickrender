@@ -34,17 +34,17 @@ pub struct Object(Rc<RefCell<ObjectInternal>>);
 // TODO - implement ObjectRef with Weak
 
 impl Object {
-    pub fn new(data: ObjectData, xform: Mat4) -> Self {
+    pub fn new(data: ObjectData) -> Self {
         Self(Rc::new(RefCell::new(ObjectInternal {
             data,
-            xform,
+            xform: Default::default(),
             parent: Weak::new(),
             children: Vec::new()
         })))
     }
 
     pub fn empty() -> Self {
-        Self::new(ObjectData::Empty, Mat4::default())
+        Self::new(ObjectData::Empty)
     }
 
     pub fn with_children(self, children: Vec<Object>) -> Self {

@@ -49,7 +49,7 @@ impl ApplicationHandler for App {
             Model::load_obj(&gpu, &Path::new("src/res/models/sus/sus.obj"))
                 .unwrap()
                 .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0),
-            Object::new(ObjectData::Camera(Rc::new(Camera::new(&gpu))), Default::default())
+            Object::new(ObjectData::Camera(Rc::new(Camera::new(&gpu))))
                 .with_translation(Vec3::new(-2.0, 0.0, 6.0))
         ]);
 
