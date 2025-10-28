@@ -80,7 +80,26 @@ impl ApplicationHandler for App {
                 WindowEvent::RedrawRequested => {
                     renderer.render(&scene).unwrap();
                 }
+                WindowEvent::KeyboardInput { event, .. } => {
+                    self.handle_kbd_event(event);
+                }
                 _ => (),
+            }
+        }
+    }
+}
+
+impl App {
+    fn handle_kbd_event(&mut self, event: KeyEvent) {
+        if let PhysicalKey::Code(keycode) = event.physical_key {
+            match keycode {
+                KeyCode::KeyW => {},
+                KeyCode::KeyA => {},
+                KeyCode::KeyS => {},
+                KeyCode::KeyD => {},
+                KeyCode::Space => {},
+                KeyCode::ShiftLeft => {},
+                _ => {}
             }
         }
     }
