@@ -18,7 +18,7 @@ impl Renderer {
                     ObjectData::Model(model) => {
                         model.update_model_uniform(&self.gpu, xform);
                         model.material
-                            .as_gpu(&self.globals, &scene.get_camera(), &model)
+                            .as_gpu(&self.globals, &scene.get_camera().unwrap(), &model)
                             .setup(render_pass);
                         model.mesh.set_render_pass(render_pass);
                     },

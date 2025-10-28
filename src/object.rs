@@ -134,12 +134,12 @@ impl Object {
             .collect()
     }
 
-    pub fn get_all_cameras(&self) -> Vec<(Rc<Camera>, Mat4)> {
+    pub fn get_all_cameras(&self) -> Vec<(Object, Mat4)> {
         self.get_all()
             .into_iter()
             .filter_map(|(obj, xform)| {
                 match &obj.0.borrow().data {
-                    ObjectData::Camera(camera) => Some((camera.clone(), xform)),
+                    ObjectData::Camera(_) => Some((obj.clone(), xform)),
                     _ => None
                 }
             })

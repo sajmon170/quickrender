@@ -10,7 +10,7 @@ use crate::{
 
 pub struct Scene {
     pub root: Object,
-    camera: Weak<Camera>
+    camera: Option<Object>
 }
 
 impl Scene {
@@ -18,8 +18,8 @@ impl Scene {
         let root = Object::empty().with_children(objs);
         let camera = root.get_all_cameras()
             .first()
-            .map(|(camera, _)| Rc::downgrade(camera))
-            .unwrap_or_default();
+            .map(|(camera, _)| camera)
+            .cloned();
         
         Self {
             root,
@@ -27,11 +27,18 @@ impl Scene {
         }
     }
     
-    pub fn set_camera(&mut self, camera: &Rc<Camera>) {
-        self.camera = Rc::downgrade(camera);
+    pub fn set_camera(&mut self, camera: Object) {
+        self.camera = Some(camera);
     }
 
-    pub fn get_camera(&self) -> Rc<Camera> {
-        self.camera.upgrade().unwrap()
+    pub fn get_camera(&self) -> Option<Rc<Camera>> {
+        self.camera.as_ref().map(|obj| match obj.get().deref() {
+            ObjectData::Camera(camera) => camera.clone(),
+            _ => panic!()
+        })
+    }
+
+    pub fn get_camera_object(&mut self) -> &mut Option<Object> {
+        &mut self.camera
     }
 }
