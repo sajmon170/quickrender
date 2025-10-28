@@ -8,6 +8,7 @@ mod data;
 mod camera;
 mod scene;
 mod globals;
+mod physics;
 
 use std::{path::Path, rc::Rc};
 
@@ -28,12 +29,14 @@ use winit::{
 use crate::{
     gpu::Gpu,
     renderer::Renderer,
+    physics::PhysicsController
 };
 
 #[derive(Default)]
 struct App {
     renderer: Option<Renderer>,
     scene: Option<Scene>,
+    physics: PhysicsController
 }
 
 impl ApplicationHandler for App {
