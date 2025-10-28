@@ -6,20 +6,19 @@ use std::{ops::Deref, path::Path};
 
 pub struct Renderer {
     gpu: Gpu,
-    scene: Scene,
     globals: Globals
 }
 
 impl Renderer {
-    pub fn render(&mut self) -> Result<()> {
+    pub fn render(&mut self, scene: &Scene) -> Result<()> {
         self.globals.update_globals(&self.gpu);
         self.gpu.render(|render_pass| {
-            for (obj, xform) in self.scene.root.get_all() {
+            for (obj, xform) in scene.root.get_all() {
                 match obj.get().deref() {
                     ObjectData::Model(model) => {
                         model.update_model_uniform(&self.gpu, xform);
                         model.material
-                            .as_gpu(&self.globals, &self.scene.get_camera(), &model)
+                            .as_gpu(&self.globals, &scene.get_camera(), &model)
                             .setup(render_pass);
                         model.mesh.set_render_pass(render_pass);
                     },
@@ -32,9 +31,9 @@ impl Renderer {
         })
     }
 
-    pub fn new(gpu: Gpu, scene: Scene) -> Self {
+    pub fn new(gpu: Gpu) -> Self {
         let globals = Globals::new(&gpu);
-        Self { gpu, scene, globals }
+        Self { gpu, globals }
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {

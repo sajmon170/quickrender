@@ -19,9 +19,10 @@ use scene::Scene;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::WindowEvent,
+    event::{KeyEvent, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::Window,
+    keyboard::{KeyCode, PhysicalKey},
+    window::Window
 };
 
 use crate::{
@@ -31,7 +32,8 @@ use crate::{
 
 #[derive(Default)]
 struct App {
-    renderer: Option<Renderer>
+    renderer: Option<Renderer>,
+    scene: Option<Scene>,
 }
 
 impl ApplicationHandler for App {
@@ -53,7 +55,8 @@ impl ApplicationHandler for App {
                 .with_translation(Vec3::new(-2.0, 0.0, 6.0))
         ]);
 
-        self.renderer = Some(Renderer::new(gpu, scene));
+        self.scene = Some(scene);
+        self.renderer = Some(Renderer::new(gpu));
     }
 
     fn window_event(
@@ -62,24 +65,20 @@ impl ApplicationHandler for App {
         _id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
-        let renderer = if let Some(renderer) = &mut self.renderer {
-            renderer
-        } else {
-            return;
-        };
-
-        match event {
-            WindowEvent::CloseRequested => {
-                println!("Closing window.");
-                event_loop.exit();
+        if let Some(renderer) = &mut self.renderer && let Some(scene) = &mut self.scene {
+            match event {
+                WindowEvent::CloseRequested => {
+                    println!("Closing window.");
+                    event_loop.exit();
+                }
+                WindowEvent::Resized(size) => {
+                    renderer.resize(size);
+                }
+                WindowEvent::RedrawRequested => {
+                    renderer.render(&scene).unwrap();
+                }
+                _ => (),
             }
-            WindowEvent::Resized(size) => {
-                renderer.resize(size);
-            }
-            WindowEvent::RedrawRequested => {
-                renderer.render().unwrap();
-            }
-            _ => (),
         }
     }
 }
