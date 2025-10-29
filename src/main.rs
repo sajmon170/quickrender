@@ -16,13 +16,14 @@ use camera::Camera;
 use glam::{Mat4, Vec3};
 use object::{Object, ObjectData};
 use model::Model;
+use physics::UserInput;
 use scene::Scene;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::{KeyEvent, WindowEvent},
+    event::{KeyEvent, Modifiers, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    keyboard::{KeyCode, PhysicalKey},
+    keyboard::{Key, KeyCode, KeyLocation, ModifiersKeyState, NamedKey, PhysicalKey},
     window::Window
 };
 
@@ -36,7 +37,9 @@ use crate::{
 struct App {
     renderer: Option<Renderer>,
     scene: Option<Scene>,
-    physics: PhysicsController
+    physics: PhysicsController,
+    input_modifiers: Modifiers,
+    key_event: Option<KeyEvent>
 }
 
 impl ApplicationHandler for App {
@@ -68,6 +71,7 @@ impl ApplicationHandler for App {
         _id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
+        let user_input = self.handle_input();
         if let Some(renderer) = &mut self.renderer && let Some(scene) = &mut self.scene {
             match event {
                 WindowEvent::CloseRequested => {
@@ -78,10 +82,14 @@ impl ApplicationHandler for App {
                     renderer.resize(size);
                 }
                 WindowEvent::RedrawRequested => {
+                    self.physics.update(scene, user_input);
                     renderer.render(&scene).unwrap();
                 }
+                WindowEvent::ModifiersChanged(modifiers) => {
+                    self.input_modifiers = modifiers;
+                }
                 WindowEvent::KeyboardInput { event, .. } => {
-                    self.handle_kbd_event(event);
+                    self.key_event = Some(event);
                 }
                 _ => (),
             }
@@ -90,18 +98,26 @@ impl ApplicationHandler for App {
 }
 
 impl App {
-    fn handle_kbd_event(&mut self, event: KeyEvent) {
-        if let PhysicalKey::Code(keycode) = event.physical_key {
-            match keycode {
-                KeyCode::KeyW => {},
-                KeyCode::KeyA => {},
-                KeyCode::KeyS => {},
-                KeyCode::KeyD => {},
-                KeyCode::Space => {},
-                KeyCode::ShiftLeft => {},
-                _ => {}
+    fn handle_input(&mut self) -> UserInput {
+        let mut input = UserInput::default();
+
+        if let Some(key_event) = &self.key_event {
+            if let PhysicalKey::Code(code) = key_event.physical_key {
+                match code {
+                    KeyCode::KeyW => { input.move_forward = true },
+                    KeyCode::KeyA => { input.move_left = true },
+                    KeyCode::KeyS => { input.move_backward = true },
+                    KeyCode::KeyD => { input.move_right = true },
+                    KeyCode::Space => { input.move_up = true },
+                    KeyCode::KeyC => { input.move_down = true }
+                    _ => {}
+                }
             }
+
+            self.key_event = None;
         }
+
+        input
     }
 }
 
