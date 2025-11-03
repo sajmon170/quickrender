@@ -9,6 +9,8 @@ pub struct Camera {
     pub fov: f32,
     pub near: f32,
     pub far: f32,
+    yaw: f32,
+    pitch: f32,
     uniform_buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup
 }
@@ -65,8 +67,11 @@ impl Camera {
             fov: 45.0 * std::f32::consts::PI / 180.0,
             near: 0.01,
             far: 100.0,
+            // TODO - read this from constructor
+            yaw: 0.0,
+            pitch: 0.0,
             uniform_buffer,
-            bind_group
+            bind_group,
         };
 
         Object::new(camera.into())

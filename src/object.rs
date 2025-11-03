@@ -81,8 +81,20 @@ impl Object {
         self.0.borrow_mut().children = children;
         self
     }
+
+    pub fn get_parent_xform(&self) -> Mat4 {
+        self.0.borrow()
+            .parent
+            .upgrade()
+            .map(|parent| Object(parent).get_local_xform())
+            .unwrap_or_default()
+    }
+
+    pub fn get_local_xform(&self) -> Mat4 {
+        self.0.borrow().xform
+    }
     
-    pub fn set(&mut self, xform: Mat4) {
+    pub fn set_xform(&mut self, xform: Mat4) {
         self.0.borrow_mut().xform = xform;
     }
 
