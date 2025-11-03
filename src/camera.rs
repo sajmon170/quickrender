@@ -75,7 +75,7 @@ impl Camera {
     pub fn update_camera_uniform(&self, gpu: &Gpu, xform: glam::Mat4, ratio: f32) {
         let uniform_data = CameraUniform {
             projection: self.get_projection_matrix(ratio),
-            view: xform,
+            view: xform.inverse(),
             camera_pos: xform.to_scale_rotation_translation().2,
             _padding: Default::default()
         };

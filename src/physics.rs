@@ -9,7 +9,9 @@ pub struct UserInput {
     pub move_left: bool,
     pub move_right: bool,
     pub move_up: bool,
-    pub move_down: bool
+    pub move_down: bool,
+    pub yaw: f32,
+    pub pitch: f32
 }
 
 impl UserInput {
@@ -46,10 +48,6 @@ impl UserInput {
         
         direction
     }
-
-    pub fn clear(&mut self) {
-        *self = Default::default();
-    }
 }
 
 #[derive(Default)]
@@ -59,6 +57,8 @@ impl PhysicsController {
     pub fn update(&self, scene: &mut Scene, input: UserInput) {
         if let Some(camera) = scene.get_camera_object() {
             camera.translate(input.direction() * 0.1);
+            camera.rotate_y(-input.yaw * 0.0025);
+            camera.rotate_x(-input.pitch * 0.0025);
         }
     }
 }
