@@ -24,7 +24,7 @@ use winit::{
     event::{DeviceEvent, KeyEvent, Modifiers, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     keyboard::{Key, KeyCode, KeyLocation, ModifiersKeyState, NamedKey, PhysicalKey},
-    window::Window
+    window::{CursorGrabMode, Window}
 };
 
 use crate::{
@@ -52,6 +52,8 @@ impl ApplicationHandler for App {
             .with_resizable(false);
 
         let window = event_loop.create_window(attrs).unwrap();
+        let _ = window.set_cursor_grab(CursorGrabMode::Confined);
+        window.set_cursor_visible(false);
         let gpu = pollster::block_on(Gpu::new(window, size)).unwrap();
 
         let scene = Scene::new(vec![
