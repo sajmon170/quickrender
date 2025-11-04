@@ -2643,6 +2643,7 @@ dependencies = [
  "image",
  "log",
  "pollster",
+ "slab",
  "tobj",
  "wgpu",
  "winit",
