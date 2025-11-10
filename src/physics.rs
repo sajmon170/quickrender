@@ -1,6 +1,6 @@
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 
-use crate::scene::Scene;
+use crate::{object::DataStore, scene::Scene};
 
 #[derive(Default, Copy, Clone)]
 pub struct UserInput {
@@ -9,7 +9,9 @@ pub struct UserInput {
     pub move_left: bool,
     pub move_right: bool,
     pub move_up: bool,
-    pub move_down: bool
+    pub move_down: bool,
+    pub yaw: f32,
+    pub pitch: f32
 }
 
 impl UserInput {
@@ -46,10 +48,6 @@ impl UserInput {
         
         direction
     }
-
-    pub fn clear(&mut self) {
-        *self = Default::default();
-    }
 }
 
 #[derive(Default)]
@@ -58,7 +56,15 @@ pub struct PhysicsController;
 impl PhysicsController {
     pub fn update(&self, scene: &mut Scene, input: UserInput) {
         if let Some(camera) = scene.get_camera_object() {
-            camera.translate(input.direction() * 0.1);
+            let (_, _, pos) = camera.get_local_xform().to_scale_rotation_translation();
+
+            let xform =
+                Mat4::from_rotation_y(-input.yaw * 0.0025)
+                * Mat4::from_rotation_x(-input.pitch * 0.0025)
+                * Mat4::from_translation(pos)
+                * camera.get_parent_xform();
+
+            camera.set_xform(xform);
         }
     }
 }

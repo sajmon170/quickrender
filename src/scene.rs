@@ -5,7 +5,7 @@ use tobj::LoadError;
 use std::rc::Rc;
 
 use crate::{
-    camera::Camera, data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, object::{Object, ObjectData}, model::Model
+    camera::Camera, data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, object::{Object, DataToken}, model::Model
 };
 
 pub struct Scene {
@@ -15,11 +15,12 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(objs: Vec<Object>) -> Self {
+        let camera = objs.iter().find(|obj| match obj.get_data() {
+            DataToken::Camera(_) => true,
+            _ => false
+        }).cloned();
+
         let root = Object::empty().with_children(objs);
-        let camera = root.get_all_cameras()
-            .first()
-            .map(|(camera, _)| camera)
-            .cloned();
         
         Self {
             root,
@@ -31,14 +32,7 @@ impl Scene {
         self.camera = Some(camera);
     }
 
-    pub fn get_camera(&self) -> Option<Rc<Camera>> {
-        self.camera.as_ref().map(|obj| match obj.get().deref() {
-            ObjectData::Camera(camera) => camera.clone(),
-            _ => panic!()
-        })
-    }
-
-    pub fn get_camera_object(&mut self) -> &mut Option<Object> {
-        &mut self.camera
+    pub fn get_camera_object(&mut self) -> Option<&mut Object> {
+        self.camera.as_mut()
     }
 }

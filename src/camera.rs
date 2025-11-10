@@ -2,13 +2,15 @@ use glam::{Vec3, Mat4};
 use bytemuck::NoUninit;
 use std::num::NonZero;
 
-use crate::{gpu::Gpu, object::Object};
+use crate::{gpu::Gpu, object::{DataStore, Object}};
 
 #[derive(Clone)]
 pub struct Camera {
     pub fov: f32,
     pub near: f32,
     pub far: f32,
+    yaw: f32,
+    pitch: f32,
     uniform_buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup
 }
@@ -24,7 +26,7 @@ pub struct CameraUniform {
 }
 
 impl Camera {
-    pub fn new(gpu: &Gpu) -> Object {
+    pub fn new(gpu: &Gpu, store: &mut DataStore) -> Object {
         let uniform_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Camera uniform buffer"),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -65,17 +67,20 @@ impl Camera {
             fov: 45.0 * std::f32::consts::PI / 180.0,
             near: 0.01,
             far: 100.0,
+            // TODO - read this from constructor
+            yaw: 0.0,
+            pitch: 0.0,
             uniform_buffer,
-            bind_group
+            bind_group,
         };
 
-        Object::new(camera.into())
+        Object::new(camera, store)
     }
 
     pub fn update_camera_uniform(&self, gpu: &Gpu, xform: glam::Mat4, ratio: f32) {
         let uniform_data = CameraUniform {
             projection: self.get_projection_matrix(ratio),
-            view: xform,
+            view: xform.inverse(),
             camera_pos: xform.to_scale_rotation_translation().2,
             _padding: Default::default()
         };
