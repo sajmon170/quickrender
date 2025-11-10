@@ -1,8 +1,7 @@
-use crate::{globals::Globals, gpu::Gpu, material::SimpleMaterial, mesh::Mesh, model::Model, object::{DataStore, DataToken, Object}, scene::Scene};
+use crate::{globals::Globals, gpu::Gpu, object::{DataStore, DataToken}, scene::Scene};
+
 use winit::dpi::PhysicalSize;
 use anyhow::Result;
-use glam::{Vec2, Vec3};
-use std::{ops::Deref, path::Path};
 
 pub struct Renderer {
     gpu: Gpu,

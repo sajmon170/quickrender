@@ -1,19 +1,14 @@
-use std::ops::Deref;
 use std::path::Path;
 
-use glam::{Mat4, Vec3, Vec4};
+use glam::Mat4;
 use tobj::LoadError;
 
 use bytemuck::NoUninit;
 use std::num::NonZero;
 
-use std::rc::{Rc, Weak};
-use std::cell::{Ref, RefCell};
-
-use crate::camera::Camera;
 use crate::object::DataStore;
 use crate::{
-    data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, object::{Object, DataToken}
+    data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, object::Object
 };
 
 #[repr(C, packed)]

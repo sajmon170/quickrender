@@ -1,12 +1,4 @@
-use std::{ops::Deref, path::Path, rc::Weak};
-
-use glam::{Mat4, Vec3, Vec4};
-use tobj::LoadError;
-use std::rc::Rc;
-
-use crate::{
-    camera::Camera, data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, object::{Object, DataToken}, model::Model
-};
+use crate::object::{Object, DataToken};
 
 pub struct Scene {
     pub root: Object,

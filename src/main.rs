@@ -10,11 +10,11 @@ mod scene;
 mod globals;
 mod physics;
 
-use std::{path::Path, rc::Rc};
+use std::path::Path;
 
 use camera::Camera;
-use glam::{Mat4, Vec2, Vec3};
-use object::{DataStore, DataToken, Object};
+use glam::{Vec2, Vec3};
+use object::DataStore;
 use model::Model;
 use physics::UserInput;
 use scene::Scene;
@@ -23,7 +23,7 @@ use winit::{
     dpi::PhysicalSize,
     event::{DeviceEvent, KeyEvent, Modifiers, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    keyboard::{Key, KeyCode, KeyLocation, ModifiersKeyState, NamedKey, PhysicalKey},
+    keyboard::{KeyCode, PhysicalKey},
     window::{CursorGrabMode, Window}
 };
 
