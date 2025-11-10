@@ -42,11 +42,12 @@ struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        let size = PhysicalSize::new(640, 480);
+        let size = PhysicalSize::new(1280, 800);
 
         let attrs = Window::default_attributes()
             .with_inner_size(size.clone())
-            .with_resizable(false);
+            .with_resizable(false)
+            .with_title("Quickrender");
 
         let window = event_loop.create_window(attrs).unwrap();
         let _ = window.set_cursor_grab(CursorGrabMode::Confined);
