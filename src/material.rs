@@ -1,5 +1,6 @@
 use crate::{camera::Camera, data::Vertex, globals::Globals, gpu::Gpu, model::Model};
 use std::{default::Default, mem::size_of, path::Path};
+use image::RgbaImage;
 use wgpu::{Extent3d, TexelCopyBufferLayout};
 
 pub trait Material {
@@ -197,11 +198,9 @@ impl SimpleMaterial {
     fn make_texture(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        path: &Path,
+        texture_rgba: &RgbaImage,
         format: wgpu::TextureFormat,
     ) -> wgpu::Texture {
-        let texture_bytes = std::fs::read(path).unwrap();
-        let texture_rgba = image::load_from_memory(&texture_bytes).unwrap().to_rgba8();
         let (tex_width, tex_height) = texture_rgba.dimensions();
         let extent = Extent3d {
             width: tex_width,
@@ -241,17 +240,17 @@ impl SimpleMaterial {
         texture
     }
 
-    pub fn new(gpu: &Gpu, texture_path: &Path, normal_path: &Path) -> Self {
+    pub fn new(gpu: &Gpu, texture_rgba: &RgbaImage, normal_rgba: &RgbaImage) -> Self {
         let texture = Self::make_texture(
             &gpu.device,
             &gpu.queue,
-            texture_path,
+            texture_rgba,
             wgpu::TextureFormat::Rgba8UnormSrgb,
         );
         let normal_map = Self::make_texture(
             &gpu.device,
             &gpu.queue,
-            normal_path,
+            normal_rgba,
             wgpu::TextureFormat::Rgba8Unorm,
         );
         let texture_bind_group_layout = Self::get_texture_bind_group_layout(&gpu.device);
