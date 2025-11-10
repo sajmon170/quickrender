@@ -31,7 +31,7 @@ impl Camera {
     pub const DEFAULT_FOV: f32 = 45.0 * std::f32::consts::PI / 180.0;
     pub const DEFAULT_NEAR: f32 = 0.01;
     pub const DEFAULT_FAR: f32 = 100.0;
-    
+
     pub fn new_custom(gpu: &Gpu, store: &mut DataStore, fov: f32, near: f32, far: f32) -> Object {
         let uniform_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Camera uniform buffer"),
@@ -84,7 +84,13 @@ impl Camera {
     }
 
     pub fn new(gpu: &Gpu, store: &mut DataStore) -> Object {
-        Self::new_custom(gpu, store, Self::DEFAULT_FOV, Self::DEFAULT_NEAR, Self::DEFAULT_FAR)
+        Self::new_custom(
+            gpu,
+            store,
+            Self::DEFAULT_FOV,
+            Self::DEFAULT_NEAR,
+            Self::DEFAULT_FAR,
+        )
     }
 
     pub fn update_camera_uniform(&self, gpu: &Gpu, xform: glam::Mat4, ratio: f32) {
