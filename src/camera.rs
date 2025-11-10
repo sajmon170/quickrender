@@ -9,8 +9,8 @@ pub struct Camera {
     pub fov: f32,
     pub near: f32,
     pub far: f32,
-    yaw: f32,
-    pitch: f32,
+    pub yaw: f32,
+    pub pitch: f32,
     uniform_buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup
 }

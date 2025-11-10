@@ -89,7 +89,7 @@ impl ApplicationHandler for App {
                 let user_input = self.handle_input();
 
                 if let Some(renderer) = &mut self.renderer && let Some(scene) = &mut self.scene {
-                    self.physics.update(scene, user_input);
+                    self.physics.update(scene, &mut self.data_store, user_input);
                     renderer.render(scene, &mut self.data_store).unwrap();
                 }
             }

@@ -54,14 +54,19 @@ impl UserInput {
 pub struct PhysicsController;
 
 impl PhysicsController {
-    pub fn update(&self, scene: &mut Scene, input: UserInput) {
+    pub fn update(&self, scene: &mut Scene, store: &mut DataStore, input: UserInput) {
         if let Some(camera) = scene.get_camera_object() {
             let (_, _, pos) = camera.get_local_xform().to_scale_rotation_translation();
 
+            let id = camera.get_data().try_as_camera().unwrap();
+            let camera_inner = store.get_camera(id).unwrap();
+            camera_inner.yaw += input.yaw * 0.0025;
+            camera_inner.pitch += input.pitch * 0.0025;
+
             let xform =
-                Mat4::from_rotation_y(-input.yaw * 0.0025)
-                * Mat4::from_rotation_x(-input.pitch * 0.0025)
-                * Mat4::from_translation(pos)
+                Mat4::from_translation(pos)
+                * Mat4::from_rotation_y(camera_inner.yaw)
+                * Mat4::from_rotation_x(camera_inner.pitch)
                 * camera.get_parent_xform();
 
             camera.set_xform(xform);
