@@ -14,7 +14,7 @@ pub struct SimpleMaterial {
 }
 
 impl Material for SimpleMaterial {
-    fn as_gpu<'a>(&'a self, globals: &'a Globals, camera: &'a Camera, model: &'a Model) -> GpuMaterial {
+    fn as_gpu<'a>(&'a self, globals: &'a Globals, camera: &'a Camera, model: &'a Model) -> GpuMaterial<'a> {
         GpuMaterial {
             pipeline: &self.pipeline,
             bind_groups: vec![

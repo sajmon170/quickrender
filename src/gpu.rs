@@ -141,7 +141,7 @@ impl Gpu {
         })
     }
 
-    pub fn get_render_pipelines(&self) -> RefMut<HashMap<String, wgpu::RenderPipeline>> {
+    pub fn get_render_pipelines(&self) -> RefMut<'_, HashMap<String, wgpu::RenderPipeline>> {
         self.render_pipelines.borrow_mut()
     }
 
