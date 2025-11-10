@@ -1,11 +1,14 @@
 use std::path::Path;
 
 use glam::Mat4;
+use gltf::camera::{Perspective, Projection};
+use gltf::Gltf;
 use tobj::LoadError;
 
 use bytemuck::NoUninit;
 use std::num::NonZero;
 
+use crate::camera::Camera;
 use crate::object::DataStore;
 use crate::{
     data::Vertex,
@@ -92,6 +95,33 @@ impl Model {
             model_uniform,
             bind_group,
         }
+    }
+
+    fn parse_node(node: gltf::Node, gpu: &Gpu, store: &mut DataStore) -> Option<Object> {
+        if let Some(camera) = node.camera()
+            && let Projection::Perspective(perspective) = camera.projection() {
+                let fov = perspective.yfov();
+                let far = perspective.zfar().unwrap_or(Camera::DEFAULT_FAR);
+                let near = perspective.znear();
+
+                Some(Camera::new_custom(gpu, store, fov, near, far))
+        }
+        else {
+            None
+        }
+    }
+
+    // Note: This should return a full scene
+    // Maybe move this to Scene instead?
+    pub fn load_gltf(gpu: &Gpu, store: &mut DataStore, path: &Path) -> gltf::Result<Vec<Object>> {
+        let gltf = Gltf::open(path)?;
+        let scene = gltf.scenes().next().unwrap();
+
+        let objs: Vec<_> = scene.nodes()
+            .filter_map(|node| Self::parse_node(node, gpu, store))
+            .collect();
+        
+        Ok(objs)
     }
 
     pub fn load_obj(gpu: &Gpu, store: &mut DataStore, path: &Path) -> Result<Object, LoadError> {
