@@ -92,6 +92,10 @@ impl Object {
         self
     }
 
+    pub fn add_children(&mut self, children: Vec<Object>) {
+        self.0.borrow_mut().children.extend(children);
+    }
+
     pub fn get_parent_xform(&self) -> Mat4 {
         self.0
             .borrow()

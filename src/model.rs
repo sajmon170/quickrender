@@ -188,6 +188,11 @@ impl Model {
         buffers: &Vec<gltf::buffer::Data>,
         images: &Vec<gltf::image::Data>,
     ) -> Option<Object> {
+        let children: Vec<_> = node
+            .children()
+            .flat_map(|child| Self::parse_node(gpu, store, child, buffers, images))
+            .collect();
+        
         let obj = if let Some(camera) = node.camera()
             && let Projection::Perspective(perspective) = camera.projection()
         {
@@ -201,6 +206,7 @@ impl Model {
         obj.map(|mut object| {
             let matrix = node.transform().matrix();
             object.set_xform(Mat4::from_cols_array_2d(&matrix));
+            object.add_children(children);
             object
         })
     }
