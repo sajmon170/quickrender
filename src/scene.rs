@@ -1,25 +1,25 @@
-use crate::object::{Object, DataToken};
+use crate::object::{DataToken, Object};
 
 pub struct Scene {
     pub root: Object,
-    camera: Option<Object>
+    camera: Option<Object>,
 }
 
 impl Scene {
     pub fn new(objs: Vec<Object>) -> Self {
-        let camera = objs.iter().find(|obj| match obj.get_data() {
-            DataToken::Camera(_) => true,
-            _ => false
-        }).cloned();
+        let camera = objs
+            .iter()
+            .find(|obj| match obj.get_data() {
+                DataToken::Camera(_) => true,
+                _ => false,
+            })
+            .cloned();
 
         let root = Object::empty().with_children(objs);
-        
-        Self {
-            root,
-            camera
-        }
+
+        Self { root, camera }
     }
-    
+
     pub fn set_camera(&mut self, camera: Object) {
         self.camera = Some(camera);
     }

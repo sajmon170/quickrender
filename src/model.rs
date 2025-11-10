@@ -8,14 +8,18 @@ use std::num::NonZero;
 
 use crate::object::DataStore;
 use crate::{
-    data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, object::Object
+    data::Vertex,
+    gpu::Gpu,
+    material::{Material, SimpleMaterial},
+    mesh::Mesh,
+    object::Object,
 };
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, NoUninit)]
 struct ModelUniform {
     pub model: Mat4,
-    pub normal: Mat4
+    pub normal: Mat4,
 }
 
 // TODO - Generalize this to multiple materials
@@ -23,12 +27,11 @@ pub struct Model {
     pub mesh: Mesh,
     pub material: Box<dyn Material>,
     model_uniform: wgpu::Buffer,
-    pub bind_group: wgpu::BindGroup
+    pub bind_group: wgpu::BindGroup,
 }
 
 impl Model {
-    fn fill_tangents(mut a: Vertex, mut b: Vertex, mut c: Vertex)
-                     -> (Vertex, Vertex, Vertex) {
+    fn fill_tangents(mut a: Vertex, mut b: Vertex, mut c: Vertex) -> (Vertex, Vertex, Vertex) {
         let e_pos_b = glam::Vec3::from(b.pos) - glam::Vec3::from(a.pos);
         let e_pos_c = glam::Vec3::from(c.pos) - glam::Vec3::from(a.pos);
 
@@ -51,43 +54,43 @@ impl Model {
             label: Some("Model uniform buffer"),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             size: size_of::<ModelUniform>() as u64,
-            mapped_at_creation: false
+            mapped_at_creation: false,
         });
-        
-        let model_uniform_layout = gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: "Model uniform variables layout".into(),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None
-                },
-                count: None
-            }]
-        });
+
+        let model_uniform_layout =
+            gpu.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: "Model uniform variables layout".into(),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
 
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: "Model uniform bind group".into(),
             layout: &model_uniform_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &model_uniform,
-                        offset: 0,
-                        size: NonZero::new(size_of::<ModelUniform>() as u64)
-                    })
-                }
-            ]
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &model_uniform,
+                    offset: 0,
+                    size: NonZero::new(size_of::<ModelUniform>() as u64),
+                }),
+            }],
         });
 
         Self {
             mesh,
             material,
             model_uniform,
-            bind_group
+            bind_group,
         }
     }
 
@@ -95,9 +98,12 @@ impl Model {
         let (models, materials) = tobj::load_obj(&path, &tobj::GPU_LOAD_OPTIONS)?;
         let materials = materials.unwrap();
         let mut objs = Vec::<Model>::new();
- 
+
         for model in models.iter() {
-            let mut vertices: Vec<_> = model.mesh.positions.chunks_exact(3)
+            let mut vertices: Vec<_> = model
+                .mesh
+                .positions
+                .chunks_exact(3)
                 .zip(model.mesh.normals.chunks_exact(3))
                 .zip(model.mesh.texcoords.chunks_exact(2))
                 .map(|((pos, normal), uv)| Vertex {
@@ -111,43 +117,43 @@ impl Model {
             // TODO - refactor texture extraction code
 
             let texture_path = if let Some(id) = model.mesh.material_id
-                && let Some(diffuse) = &materials[id].diffuse_texture {
+                && let Some(diffuse) = &materials[id].diffuse_texture
+            {
                 diffuse
-            }
-            else {
+            } else {
                 &"src/res/star.png".into()
             };
 
             let normal_path = if let Some(id) = model.mesh.material_id
-                && let Some(normal) = &materials[id].normal_texture {
+                && let Some(normal) = &materials[id].normal_texture
+            {
                 if let Some("-bm") = normal.split_whitespace().next() {
                     normal.splitn(3, " ").last().unwrap()
-                }
-                else {
+                } else {
                     normal
                 }
-            }
-            else {
+            } else {
                 "src/res/star.png"
             };
 
-            let material = Box::new(SimpleMaterial::new(&gpu,
-                                                        &Path::new(texture_path),
-                                                        &Path::new(normal_path)));
-
+            let material = Box::new(SimpleMaterial::new(
+                &gpu,
+                &Path::new(texture_path),
+                &Path::new(normal_path),
+            ));
 
             for point_idx in model.mesh.indices.chunks_exact(3) {
                 let (a, b, c) = Self::fill_tangents(
                     vertices[point_idx[0] as usize],
                     vertices[point_idx[1] as usize],
-                    vertices[point_idx[2] as usize]
+                    vertices[point_idx[2] as usize],
                 );
 
                 vertices[point_idx[0] as usize] = a;
                 vertices[point_idx[1] as usize] = b;
                 vertices[point_idx[2] as usize] = c;
             }
-            
+
             let mesh = Mesh::new(gpu, vertices, model.mesh.indices.clone());
 
             objs.push(Self::new(&gpu, mesh, material));
@@ -164,9 +170,10 @@ impl Model {
     pub fn update_model_uniform(&self, gpu: &Gpu, xform: glam::Mat4) {
         let uniform_data = ModelUniform {
             model: xform,
-            normal: xform.inverse().transpose()
+            normal: xform.inverse().transpose(),
         };
 
-        gpu.queue.write_buffer(&self.model_uniform, 0, bytemuck::bytes_of(&uniform_data));
+        gpu.queue
+            .write_buffer(&self.model_uniform, 0, bytemuck::bytes_of(&uniform_data));
     }
 }

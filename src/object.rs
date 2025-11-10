@@ -3,8 +3,8 @@ use slab::Slab;
 
 use strum::EnumTryAs;
 
-use std::rc::{Rc, Weak};
 use std::cell::RefCell;
+use std::rc::{Rc, Weak};
 
 use crate::camera::Camera;
 use crate::model::Model;
@@ -12,7 +12,7 @@ use crate::model::Model;
 #[derive(Default)]
 pub struct DataStore {
     models: Slab<Model>,
-    cameras: Slab<Camera>
+    cameras: Slab<Camera>,
 }
 
 impl DataStore {
@@ -39,14 +39,14 @@ impl DataStore {
 pub enum DataToken {
     Empty,
     Model(usize),
-    Camera(usize)
+    Camera(usize),
 }
 
 struct ObjectInternal {
     xform: Mat4,
     data: DataToken,
     parent: Weak<RefCell<ObjectInternal>>,
-    children: Vec<Object>
+    children: Vec<Object>,
 }
 
 pub trait IntoData {
@@ -74,7 +74,7 @@ impl Object {
             data: data.into_data(store),
             xform: Default::default(),
             parent: Weak::new(),
-            children: Vec::new()
+            children: Vec::new(),
         })))
     }
 
@@ -83,7 +83,7 @@ impl Object {
             data: DataToken::Empty,
             xform: Default::default(),
             parent: Weak::new(),
-            children: Vec::new()
+            children: Vec::new(),
         })))
     }
 
@@ -93,7 +93,8 @@ impl Object {
     }
 
     pub fn get_parent_xform(&self) -> Mat4 {
-        self.0.borrow()
+        self.0
+            .borrow()
             .parent
             .upgrade()
             .map(|parent| Object(parent).get_local_xform())
@@ -103,7 +104,7 @@ impl Object {
     pub fn get_local_xform(&self) -> Mat4 {
         self.0.borrow().xform
     }
-    
+
     pub fn set_xform(&mut self, xform: Mat4) {
         self.0.borrow_mut().xform = xform;
     }
@@ -143,7 +144,7 @@ impl Object {
                 let data = obj.0.borrow().data;
                 match data {
                     DataToken::Model(_) => Some((data, xform)),
-                    _ => None
+                    _ => None,
                 }
             })
             .collect()
@@ -156,7 +157,7 @@ impl Object {
                 let data = obj.0.borrow().data;
                 match data {
                     DataToken::Camera(_) => Some((data, xform)),
-                    _ => None
+                    _ => None,
                 }
             })
             .collect()

@@ -1,8 +1,8 @@
-use winit::{window::Window, dpi::PhysicalSize};
 use anyhow::Result;
-use std::sync::Arc;
-use std::collections::HashMap;
 use std::cell::{RefCell, RefMut};
+use std::collections::HashMap;
+use std::sync::Arc;
+use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct Gpu {
     window: Arc<Window>,
@@ -13,7 +13,7 @@ pub struct Gpu {
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     // TODO - replace refcell with mut reference to gpu
-    pub render_pipelines: RefCell<HashMap<String, wgpu::RenderPipeline>>
+    pub render_pipelines: RefCell<HashMap<String, wgpu::RenderPipeline>>,
 }
 
 impl Gpu {
@@ -71,8 +71,10 @@ impl Gpu {
         Ok(adapter)
     }
 
-    async fn get_device(adapter: &wgpu::Adapter, limits: wgpu::Limits)
-                        -> Result<(wgpu::Device, wgpu::Queue)> {
+    async fn get_device(
+        adapter: &wgpu::Adapter,
+        limits: wgpu::Limits,
+    ) -> Result<(wgpu::Device, wgpu::Queue)> {
         let mut descriptor = wgpu::DeviceDescriptor::default();
         descriptor.required_limits = limits;
         let (device, queue) = adapter.request_device(&descriptor).await?;
@@ -87,16 +89,17 @@ impl Gpu {
         Ok((device, queue))
     }
 
-    fn make_depth_texture(device: &wgpu::Device,
-                          config: &wgpu::SurfaceConfiguration,
-                          format: &wgpu::TextureFormat)
-    -> (wgpu::Texture, wgpu::TextureView) {
+    fn make_depth_texture(
+        device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
+        format: &wgpu::TextureFormat,
+    ) -> (wgpu::Texture, wgpu::TextureView) {
         let sz = wgpu::Extent3d {
             width: config.width,
             height: config.height,
-            depth_or_array_layers: 1
+            depth_or_array_layers: 1,
         };
-        
+
         let texture_desc = wgpu::TextureDescriptor {
             label: "Depth Texture".into(),
             dimension: wgpu::TextureDimension::D2,
@@ -104,9 +107,8 @@ impl Gpu {
             mip_level_count: 1,
             sample_count: 1,
             format: format.clone(),
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[]
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
         };
 
         let texture = device.create_texture(&texture_desc);
@@ -118,7 +120,7 @@ impl Gpu {
 
     pub async fn new(window: Window, size: PhysicalSize<u32>) -> Result<Self> {
         let window = Arc::new(window);
-        
+
         let instance = Self::get_instance();
         let surface = instance.create_surface(window.clone())?;
         let adapter = Self::get_adapter(&instance, &surface).await?;
@@ -128,7 +130,8 @@ impl Gpu {
         let config = Self::get_config(&adapter, &surface, size);
         surface.configure(&device, &config);
 
-        let (_, depth) = Self::make_depth_texture(&device, &config, &wgpu::TextureFormat::Depth24Plus);
+        let (_, depth) =
+            Self::make_depth_texture(&device, &config, &wgpu::TextureFormat::Depth24Plus);
 
         Ok(Self {
             window,
@@ -137,7 +140,7 @@ impl Gpu {
             device,
             queue,
             config,
-            render_pipelines: Default::default()
+            render_pipelines: Default::default(),
         })
     }
 
@@ -155,7 +158,7 @@ impl Gpu {
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
- 
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -166,7 +169,7 @@ impl Gpu {
             let bg_rgb = [255, 255, 255]
                 .map(|x| x as f64 / 255.0) // Normalize
                 .map(|x| x.powf(2.2)); // Convert to sRGB
-            
+
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -187,9 +190,9 @@ impl Gpu {
                     view: &self.depth,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store
+                        store: wgpu::StoreOp::Store,
                     }),
-                    stencil_ops: None
+                    stencil_ops: None,
                 }),
                 occlusion_query_set: None,
                 timestamp_writes: None,

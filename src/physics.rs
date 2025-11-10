@@ -11,7 +11,7 @@ pub struct UserInput {
     pub move_up: bool,
     pub move_down: bool,
     pub yaw: f32,
-    pub pitch: f32
+    pub pitch: f32,
 }
 
 impl UserInput {
@@ -45,7 +45,7 @@ impl UserInput {
         if direction.element_sum() > 0.0 {
             direction = direction.normalize();
         }
-        
+
         direction
     }
 }
@@ -63,8 +63,7 @@ impl PhysicsController {
             camera_inner.yaw += input.yaw * 0.0025;
             camera_inner.pitch += input.pitch * 0.0025;
 
-            let rotated =
-                Mat4::from_translation(pos)
+            let rotated = Mat4::from_translation(pos)
                 * Mat4::from_rotation_y(camera_inner.yaw)
                 * Mat4::from_rotation_x(camera_inner.pitch)
                 * camera.get_parent_xform();

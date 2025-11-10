@@ -1,11 +1,16 @@
-use crate::{globals::Globals, gpu::Gpu, object::{DataStore, DataToken}, scene::Scene};
+use crate::{
+    globals::Globals,
+    gpu::Gpu,
+    object::{DataStore, DataToken},
+    scene::Scene,
+};
 
-use winit::dpi::PhysicalSize;
 use anyhow::Result;
+use winit::dpi::PhysicalSize;
 
 pub struct Renderer {
     gpu: Gpu,
-    globals: Globals
+    globals: Globals,
 }
 
 impl Renderer {
@@ -17,18 +22,22 @@ impl Renderer {
                     DataToken::Model(id) => {
                         // TODO - refactor this unwrap and clone mess
                         let token = scene.get_camera_object().unwrap().get_data();
-                        let camera = store.get_camera(token.try_as_camera().unwrap()).unwrap().clone();
+                        let camera = store
+                            .get_camera(token.try_as_camera().unwrap())
+                            .unwrap()
+                            .clone();
                         let model = store.get_model(id).unwrap();
                         model.update_model_uniform(&self.gpu, xform);
-                        model.material
+                        model
+                            .material
                             .as_gpu(&self.globals, &camera, model)
                             .setup(render_pass);
                         model.mesh.set_render_pass(render_pass);
-                    },
+                    }
                     DataToken::Camera(id) => {
                         let camera = store.get_camera(id).unwrap();
-                        camera.update_camera_uniform(&self.gpu, xform, 640.0/480.0);
-                    },
+                        camera.update_camera_uniform(&self.gpu, xform, 640.0 / 480.0);
+                    }
                     _ => {}
                 }
             }

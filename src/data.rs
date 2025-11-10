@@ -7,5 +7,5 @@ pub struct Vertex {
     pub tangent: [f32; 3],
     pub bitangent: [f32; 3],
     pub normal: [f32; 3],
-    pub uv: [f32; 2]
+    pub uv: [f32; 2],
 }

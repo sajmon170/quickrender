@@ -1,21 +1,21 @@
+mod camera;
+mod data;
+mod globals;
 mod gpu;
-mod renderer;
-mod object;
 mod material;
 mod mesh;
 mod model;
-mod data;
-mod camera;
-mod scene;
-mod globals;
+mod object;
 mod physics;
+mod renderer;
+mod scene;
 
 use std::path::Path;
 
 use camera::Camera;
 use glam::{Vec2, Vec3};
-use object::DataStore;
 use model::Model;
+use object::DataStore;
 use physics::UserInput;
 use scene::Scene;
 use winit::{
@@ -24,14 +24,10 @@ use winit::{
     event::{DeviceEvent, KeyEvent, Modifiers, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     keyboard::{KeyCode, PhysicalKey},
-    window::{CursorGrabMode, Window}
+    window::{CursorGrabMode, Window},
 };
 
-use crate::{
-    gpu::Gpu,
-    renderer::Renderer,
-    physics::PhysicsController
-};
+use crate::{gpu::Gpu, physics::PhysicsController, renderer::Renderer};
 
 #[derive(Default)]
 struct App {
@@ -41,7 +37,7 @@ struct App {
     physics: PhysicsController,
     input_modifiers: Modifiers,
     key_event: Option<KeyEvent>,
-    mouse_motion: Vec2
+    mouse_motion: Vec2,
 }
 
 impl ApplicationHandler for App {
@@ -58,12 +54,16 @@ impl ApplicationHandler for App {
         let gpu = pollster::block_on(Gpu::new(window, size)).unwrap();
 
         let scene = Scene::new(vec![
-            Model::load_obj(&gpu, &mut self.data_store, &Path::new("src/res/models/sus/sus.obj"))
-                .unwrap()
-                .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0),
+            Model::load_obj(
+                &gpu,
+                &mut self.data_store,
+                &Path::new("src/res/models/sus/sus.obj"),
+            )
+            .unwrap()
+            .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0),
             Camera::new(&gpu, &mut self.data_store)
                 .with_rotation_y(std::f32::consts::PI)
-                .with_translation(Vec3::new(0.0, 0.0, 6.0))
+                .with_translation(Vec3::new(0.0, 0.0, 6.0)),
         ]);
 
         self.scene = Some(scene);
@@ -89,7 +89,9 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 let user_input = self.handle_input();
 
-                if let Some(renderer) = &mut self.renderer && let Some(scene) = &mut self.scene {
+                if let Some(renderer) = &mut self.renderer
+                    && let Some(scene) = &mut self.scene
+                {
                     self.physics.update(scene, &mut self.data_store, user_input);
                     renderer.render(scene, &mut self.data_store).unwrap();
                 }
@@ -114,7 +116,7 @@ impl ApplicationHandler for App {
             DeviceEvent::MouseMotion { delta } => {
                 let motion = Vec2::from([delta.0 as f32, delta.1 as f32]);
                 self.mouse_motion += motion;
-            },
+            }
             _ => {}
         }
     }
@@ -127,12 +129,12 @@ impl App {
         if let Some(key_event) = &self.key_event {
             if let PhysicalKey::Code(code) = key_event.physical_key {
                 match code {
-                    KeyCode::KeyW => { input.move_forward = true },
-                    KeyCode::KeyA => { input.move_left = true },
-                    KeyCode::KeyS => { input.move_backward = true },
-                    KeyCode::KeyD => { input.move_right = true },
-                    KeyCode::Space => { input.move_up = true },
-                    KeyCode::KeyC => { input.move_down = true }
+                    KeyCode::KeyW => input.move_forward = true,
+                    KeyCode::KeyA => input.move_left = true,
+                    KeyCode::KeyS => input.move_backward = true,
+                    KeyCode::KeyD => input.move_right = true,
+                    KeyCode::Space => input.move_up = true,
+                    KeyCode::KeyC => input.move_down = true,
                     _ => {}
                 }
             }
