@@ -62,7 +62,8 @@ impl ApplicationHandler for App {
                 .unwrap()
                 .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0),
             Camera::new(&gpu, &mut self.data_store)
-                .with_translation(Vec3::new(-2.0, 0.0, 6.0))
+                .with_rotation_y(std::f32::consts::PI)
+                .with_translation(Vec3::new(0.0, 0.0, 6.0))
         ]);
 
         self.scene = Some(scene);
