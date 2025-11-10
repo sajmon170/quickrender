@@ -54,10 +54,17 @@ impl ApplicationHandler for App {
         let gpu = pollster::block_on(Gpu::new(window, size)).unwrap();
 
         let scene = Scene::new(vec![
+            /*
             Model::load_obj(
                 &gpu,
                 &mut self.data_store,
                 &Path::new("src/res/models/sus/sus.obj"),
+            )
+            */
+            Model::load_gltf(
+                &gpu,
+                &mut self.data_store,
+                &Path::new("src/res/gltf/amog.glb")
             )
             .unwrap()
             .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0),
