@@ -166,7 +166,7 @@ impl Gpu {
             });
 
         {
-            let bg_rgb = [255, 255, 255]
+            let bg_rgb = [0, 0, 0]
                 .map(|x| x as f64 / 255.0) // Normalize
                 .map(|x| x.powf(2.2)); // Convert to sRGB
 
