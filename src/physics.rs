@@ -63,13 +63,15 @@ impl PhysicsController {
             camera_inner.yaw += input.yaw * 0.0025;
             camera_inner.pitch += input.pitch * 0.0025;
 
-            let xform =
+            let rotated =
                 Mat4::from_translation(pos)
                 * Mat4::from_rotation_y(camera_inner.yaw)
                 * Mat4::from_rotation_x(camera_inner.pitch)
                 * camera.get_parent_xform();
 
-            camera.set_xform(xform);
+            let translation_input = Mat4::from_translation(-input.direction() * 0.2);
+
+            camera.set_xform(rotated * translation_input);
         }
     }
 }
