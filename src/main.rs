@@ -64,7 +64,7 @@ impl ApplicationHandler for App {
             Model::load_gltf(
                 &gpu,
                 &mut self.data_store,
-                &Path::new("src/res/gltf/amog.glb")
+                &Path::new("src/res/gltf/asteroids.glb")
             )
             .unwrap()
             .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0),
