@@ -142,7 +142,6 @@ impl App {
         input.yaw = self.mouse_motion[0];
         input.pitch = self.mouse_motion[1];
         self.mouse_motion = Vec2::ZERO;
-        println!("Done");
 
         input
     }
