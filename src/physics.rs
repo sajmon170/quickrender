@@ -1,6 +1,6 @@
 use glam::{Mat4, Vec3};
 
-use crate::scene::Scene;
+use crate::{object::DataStore, scene::Scene};
 
 #[derive(Default, Copy, Clone)]
 pub struct UserInput {

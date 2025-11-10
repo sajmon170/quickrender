@@ -14,7 +14,7 @@ use std::{path::Path, rc::Rc};
 
 use camera::Camera;
 use glam::{Mat4, Vec2, Vec3};
-use object::{Object, ObjectData};
+use object::{DataStore, DataToken, Object};
 use model::Model;
 use physics::UserInput;
 use scene::Scene;
@@ -35,6 +35,7 @@ use crate::{
 
 #[derive(Default)]
 struct App {
+    data_store: DataStore,
     renderer: Option<Renderer>,
     scene: Option<Scene>,
     physics: PhysicsController,
@@ -57,10 +58,10 @@ impl ApplicationHandler for App {
         let gpu = pollster::block_on(Gpu::new(window, size)).unwrap();
 
         let scene = Scene::new(vec![
-            Model::load_obj(&gpu, &Path::new("src/res/models/sus/sus.obj"))
+            Model::load_obj(&gpu, &mut self.data_store, &Path::new("src/res/models/sus/sus.obj"))
                 .unwrap()
                 .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0),
-            Camera::new(&gpu)
+            Camera::new(&gpu, &mut self.data_store)
                 .with_translation(Vec3::new(-2.0, 0.0, 6.0))
         ]);
 
@@ -89,7 +90,7 @@ impl ApplicationHandler for App {
 
                 if let Some(renderer) = &mut self.renderer && let Some(scene) = &mut self.scene {
                     self.physics.update(scene, user_input);
-                    renderer.render(&scene).unwrap();
+                    renderer.render(scene, &mut self.data_store).unwrap();
                 }
             }
             WindowEvent::ModifiersChanged(modifiers) => {

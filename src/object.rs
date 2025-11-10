@@ -18,6 +18,7 @@ use crate::{
     data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, model::Model
 };
 
+#[derive(Default)]
 pub struct DataStore {
     models: Slab<Model>,
     cameras: Slab<Camera>
@@ -43,7 +44,7 @@ impl DataStore {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, EnumTryAs)]
 pub enum DataToken {
     Empty,
     Model(usize),
