@@ -11,8 +11,9 @@ use std::rc::{Rc, Weak};
 use std::cell::{Ref, RefCell};
 
 use crate::camera::Camera;
+use crate::object::DataStore;
 use crate::{
-    data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, object::{Object, ObjectData}
+    data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, object::{Object, DataToken}
 };
 
 #[repr(C, packed)]
@@ -95,7 +96,7 @@ impl Model {
         }
     }
 
-    pub fn load_obj(gpu: &Gpu, path: &Path) -> Result<Object, LoadError> {
+    pub fn load_obj(gpu: &Gpu, store: &mut DataStore, path: &Path) -> Result<Object, LoadError> {
         let (models, materials) = tobj::load_obj(&path, &tobj::GPU_LOAD_OPTIONS)?;
         let materials = materials.unwrap();
         let mut objs = Vec::<Model>::new();
@@ -159,7 +160,7 @@ impl Model {
 
         let result = Object::empty();
         for model in objs {
-            result.add_child(Object::new(ObjectData::Model(Rc::new(model))));
+            result.add_child(Object::new(model, store));
         }
 
         Ok(result)

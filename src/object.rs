@@ -2,7 +2,10 @@ use std::ops::Deref;
 use std::path::Path;
 
 use glam::{Mat4, Vec3, Vec4};
+use slab::Slab;
 use tobj::LoadError;
+
+use strum::EnumTryAs;
 
 use bytemuck::NoUninit;
 use std::num::NonZero;
@@ -15,58 +18,69 @@ use crate::{
     data::Vertex, gpu::Gpu, material::{Material, SimpleMaterial}, mesh::Mesh, model::Model
 };
 
-pub enum ObjectData {
+#[derive(Default)]
+pub struct DataStore {
+    models: Slab<Model>,
+    cameras: Slab<Camera>
+}
+
+impl DataStore {
+    pub fn add_model(&mut self, model: Model) -> DataToken {
+        let id = self.models.insert(model);
+        DataToken::Model(id)
+    }
+
+    pub fn add_camera(&mut self, camera: Camera) -> DataToken {
+        let id = self.cameras.insert(camera);
+        DataToken::Camera(id)
+    }
+
+    pub fn get_model(&mut self, id: usize) -> Option<&mut Model> {
+        self.models.get_mut(id)
+    }
+
+    pub fn get_camera(&mut self, id: usize) -> Option<&mut Camera> {
+        self.cameras.get_mut(id)
+    }
+}
+
+#[derive(Copy, Clone, Debug, EnumTryAs)]
+pub enum DataToken {
     Empty,
-    Model(Rc<Model>),
-    Camera(Rc<Camera>)
+    Model(usize),
+    Camera(usize)
 }
 
 struct ObjectInternal {
     xform: Mat4,
-    data: ObjectData,
+    data: DataToken,
     parent: Weak<RefCell<ObjectInternal>>,
     children: Vec<Object>
+}
+
+pub trait IntoData {
+    fn into_data(self, store: &mut DataStore) -> DataToken;
+}
+
+impl IntoData for Camera {
+    fn into_data(self, store: &mut DataStore) -> DataToken {
+        store.add_camera(self)
+    }
+}
+
+impl IntoData for Model {
+    fn into_data(self, store: &mut DataStore) -> DataToken {
+        store.add_model(self)
+    }
 }
 
 #[derive(Clone)]
 pub struct Object(Rc<RefCell<ObjectInternal>>);
 
-// TODO - implement ObjectRef with Weak
-
-impl From<ObjectData> for Object {
-    fn from(data: ObjectData) -> Object {
-        Object::new(data)
-    }
-}
-
-impl From<Camera> for ObjectData {
-    fn from(camera: Camera) -> ObjectData {
-        ObjectData::Camera(Rc::new(camera))
-    }
-}
-
-impl From<Camera> for Object {
-    fn from(camera: Camera) -> Object {
-        Object::new(camera.into())
-    }
-}
-
-impl From<Model> for ObjectData {
-    fn from(model: Model) -> ObjectData {
-        ObjectData::Model(Rc::new(model))
-    }
-}
-
-impl From<Model> for Object {
-    fn from(model: Model) -> Object {
-        Object::new(model.into())
-    }
-}
-
 impl Object {
-    pub fn new(data: ObjectData) -> Self {
+    pub fn new(data: impl IntoData, store: &mut DataStore) -> Self {
         Self(Rc::new(RefCell::new(ObjectInternal {
-            data,
+            data: data.into_data(store),
             xform: Default::default(),
             parent: Weak::new(),
             children: Vec::new()
@@ -74,32 +88,41 @@ impl Object {
     }
 
     pub fn empty() -> Self {
-        Self::new(ObjectData::Empty)
+        Self(Rc::new(RefCell::new(ObjectInternal {
+            data: DataToken::Empty,
+            xform: Default::default(),
+            parent: Weak::new(),
+            children: Vec::new()
+        })))
     }
 
     pub fn with_children(self, children: Vec<Object>) -> Self {
         self.0.borrow_mut().children = children;
         self
     }
+
+    pub fn get_parent_xform(&self) -> Mat4 {
+        self.0.borrow()
+            .parent
+            .upgrade()
+            .map(|parent| Object(parent).get_local_xform())
+            .unwrap_or_default()
+    }
+
+    pub fn get_local_xform(&self) -> Mat4 {
+        self.0.borrow().xform
+    }
     
-    pub fn set(&mut self, xform: Mat4) {
+    pub fn set_xform(&mut self, xform: Mat4) {
         self.0.borrow_mut().xform = xform;
     }
 
-    pub fn get(&self) -> impl Deref<Target = ObjectData> + '_ {
-        Ref::map(self.0.borrow(), |borrow| &borrow.data)
+    pub fn get_data(&self) -> DataToken {
+        self.0.borrow().data
     }
 
     pub fn add_child(&self, obj: Object) {
         self.0.borrow_mut().children.push(obj);
-            /*
-            Self(Rc::new(RefCell::new(ObjectInternal{
-                parent: Rc::downgrade(&self.0),
-                data,
-                xform: Mat4::default(),
-                children: Vec::new()
-            }
-        ))));*/
     }
 
     pub fn get_child(&self, idx: usize) -> Option<Self> {
@@ -122,24 +145,26 @@ impl Object {
         objs
     }
 
-    pub fn get_all_models(&self) -> Vec<(Rc<Model>, Mat4)> {
+    pub fn get_all_models(&self) -> Vec<(DataToken, Mat4)> {
         self.get_all()
             .into_iter()
             .filter_map(|(obj, xform)| {
-                match &obj.0.borrow().data {
-                    ObjectData::Model(model) => Some((model.clone(), xform)),
+                let data = obj.0.borrow().data;
+                match data {
+                    DataToken::Model(_) => Some((data, xform)),
                     _ => None
                 }
             })
             .collect()
     }
 
-    pub fn get_all_cameras(&self) -> Vec<(Rc<Camera>, Mat4)> {
+    pub fn get_all_cameras(&self) -> Vec<(DataToken, Mat4)> {
         self.get_all()
             .into_iter()
             .filter_map(|(obj, xform)| {
-                match &obj.0.borrow().data {
-                    ObjectData::Camera(camera) => Some((camera.clone(), xform)),
+                let data = obj.0.borrow().data;
+                match data {
+                    DataToken::Camera(_) => Some((data, xform)),
                     _ => None
                 }
             })
