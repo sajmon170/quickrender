@@ -126,7 +126,7 @@ impl Object {
     }
 
     fn get_all_internal(&self, objs: &mut Vec<(Object, Mat4)>, prev_xforms: &Mat4) {
-        let current_xform = self.0.borrow().xform * prev_xforms;
+        let current_xform = prev_xforms * self.0.borrow().xform;
         objs.push((self.clone(), current_xform));
 
         for child in &self.0.borrow().children {
