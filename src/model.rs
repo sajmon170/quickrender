@@ -156,6 +156,7 @@ impl Model {
                 .pbr_metallic_roughness()
                 .base_color_texture()?
                 .texture()
+                .source()
                 .index();
             let data = &images[idx];
             let texture_rgba = RgbaImage::from_raw(
@@ -166,6 +167,7 @@ impl Model {
                 .material()
                 .normal_texture()?
                 .texture()
+                .source()
                 .index();
             let data = &images[idx];
             let normal_rgba = RgbaImage::from_raw(
