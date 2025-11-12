@@ -132,7 +132,7 @@ impl Model {
                 .zip(normals)
                 .zip(uv)
                 .map(|((pos, normal), uv)| Vertex {
-                    pos: [pos[0], -pos[2], pos[1]],
+                    pos,
                     normal,
                     uv,
                     ..Default::default()
