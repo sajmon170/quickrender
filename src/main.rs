@@ -66,9 +66,9 @@ impl ApplicationHandler for App {
                 &gpu,
                 &mut self.data_store,
                 &Path::new("src/res/gltf/asteroids.glb")
-            )
-            .unwrap()
-            .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0),
+            ).unwrap()
+                .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0)
+                .with_scale(Vec3::ONE * 0.5),
             Camera::new(&gpu, &mut self.data_store)
                 .with_rotation_y(std::f32::consts::PI)
                 .with_translation(Vec3::new(0.0, 0.0, 6.0)),
