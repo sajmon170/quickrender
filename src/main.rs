@@ -42,11 +42,12 @@ struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        let size = PhysicalSize::new(640, 480);
+        let size = PhysicalSize::new(1280, 800);
 
         let attrs = Window::default_attributes()
             .with_inner_size(size.clone())
-            .with_resizable(false);
+            .with_resizable(false)
+            .with_title("Quickrender");
 
         let window = event_loop.create_window(attrs).unwrap();
         let _ = window.set_cursor_grab(CursorGrabMode::Confined);
@@ -54,13 +55,20 @@ impl ApplicationHandler for App {
         let gpu = pollster::block_on(Gpu::new(window, size)).unwrap();
 
         let scene = Scene::new(vec![
+            /*
             Model::load_obj(
                 &gpu,
                 &mut self.data_store,
                 &Path::new("src/res/models/sus/sus.obj"),
             )
-            .unwrap()
-            .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0),
+            */
+            Model::load_gltf(
+                &gpu,
+                &mut self.data_store,
+                &Path::new("src/res/gltf/asteroids.glb")
+            ).unwrap()
+                .with_rotation_x(-2.0 * std::f32::consts::PI / 4.0)
+                .with_scale(Vec3::ONE * 0.5),
             Camera::new(&gpu, &mut self.data_store)
                 .with_rotation_y(std::f32::consts::PI)
                 .with_translation(Vec3::new(0.0, 0.0, 6.0)),
@@ -152,6 +160,6 @@ impl App {
 
 fn main() {
     let event_loop = EventLoop::new().unwrap();
-    event_loop.set_control_flow(ControlFlow::Poll);
+    event_loop.set_control_flow(ControlFlow::Wait);
     event_loop.run_app(&mut App::default()).unwrap();
 }

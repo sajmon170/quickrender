@@ -1,11 +1,15 @@
 use std::path::Path;
 
 use glam::Mat4;
+use gltf::camera::{Perspective, Projection};
+use gltf::mesh::util::{ReadNormals, ReadPositions};
+use image::RgbaImage;
 use tobj::LoadError;
 
 use bytemuck::NoUninit;
 use std::num::NonZero;
 
+use crate::camera::Camera;
 use crate::object::DataStore;
 use crate::{
     data::Vertex,
@@ -94,6 +98,135 @@ impl Model {
         }
     }
 
+    fn parse_gltf_camera(gpu: &Gpu, store: &mut DataStore, perspective: Perspective) -> Option<Object> {
+        let fov = perspective.yfov();
+        let far = perspective.zfar().unwrap_or(Camera::DEFAULT_FAR);
+        let near = perspective.znear();
+
+        Some(Camera::new_custom(gpu, store, fov, near, far))
+    }
+
+    fn parse_gltf_mesh(
+        gpu: &Gpu,
+        store: &mut DataStore,
+        mesh: gltf::Mesh,
+        buffers: &Vec<gltf::buffer::Data>,
+        images: &Vec<gltf::image::Data>,
+    ) -> Option<Object> {
+        let mut children: Vec<Object> = Vec::new();
+        for primitive in mesh.primitives() {
+            let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+            let indices: Vec<u32> = reader.read_indices()?.into_u32().collect();
+            let positions: Vec<[f32; 3]> = match reader.read_positions()? {
+                ReadPositions::Standard(pos) => pos.collect(),
+                ReadPositions::Sparse(pos) => pos.collect(),
+            };
+            let normals: Vec<[f32; 3]> = match reader.read_normals()? {
+                ReadNormals::Standard(normals) => normals.collect(),
+                ReadNormals::Sparse(normals) => normals.collect(),
+            };
+            let uv: Vec<[f32; 2]> = reader.read_tex_coords(0)?.into_f32().collect();
+
+            let mut vertices: Vec<_> = positions
+                .into_iter()
+                .zip(normals)
+                .zip(uv)
+                .map(|((pos, normal), uv)| Vertex {
+                    pos,
+                    normal,
+                    uv,
+                    ..Default::default()
+                })
+                .collect();
+
+            for point_idx in indices.chunks_exact(3) {
+                let (a, b, c) = Self::fill_tangents(
+                    vertices[point_idx[0] as usize],
+                    vertices[point_idx[1] as usize],
+                    vertices[point_idx[2] as usize],
+                );
+
+                vertices[point_idx[0] as usize] = a;
+                vertices[point_idx[1] as usize] = b;
+                vertices[point_idx[2] as usize] = c;
+            }
+
+            let idx = primitive
+                .material()
+                .pbr_metallic_roughness()
+                .base_color_texture()?
+                .texture()
+                .source()
+                .index();
+            let data = &images[idx];
+            let texture_rgba = RgbaImage::from_raw(
+                data.width, data.height, data.pixels.clone()
+            )?;
+
+            let idx = primitive
+                .material()
+                .normal_texture()?
+                .texture()
+                .source()
+                .index();
+            let data = &images[idx];
+            let normal_rgba = RgbaImage::from_raw(
+                data.width, data.height, data.pixels.clone()
+            )?;
+
+            let material = Box::new(SimpleMaterial::new(&gpu, &texture_rgba, &normal_rgba));
+            let mesh = Mesh::new(gpu, vertices, indices);
+            let model = Self::new(gpu, mesh, material);
+            let obj = Object::new(model, store);
+            children.push(obj);
+        }
+        Some(Object::empty().with_children(children))
+    }
+
+    fn parse_node(
+        gpu: &Gpu,
+        store: &mut DataStore,
+        node: gltf::Node,
+        buffers: &Vec<gltf::buffer::Data>,
+        images: &Vec<gltf::image::Data>,
+    ) -> Option<Object> {
+        let children: Vec<_> = node
+            .children()
+            .flat_map(|child| Self::parse_node(gpu, store, child, buffers, images))
+            .collect();
+        
+        let obj = if let Some(camera) = node.camera()
+            && let Projection::Perspective(perspective) = camera.projection()
+        {
+            Self::parse_gltf_camera(gpu, store, perspective)
+        } else if let Some(mesh) = node.mesh() {
+            Self::parse_gltf_mesh(gpu, store, mesh, buffers, images)
+        } else {
+            None
+        };
+
+        obj.map(|mut object| {
+            let matrix = node.transform().matrix();
+            object.set_xform(Mat4::from_cols_array_2d(&matrix));
+            object.add_children(children);
+            object
+        })
+    }
+
+    // Note: This should return a full scene
+    // Maybe move this to Scene instead?
+    pub fn load_gltf(gpu: &Gpu, store: &mut DataStore, path: &Path) -> gltf::Result<Object> {
+        let (gltf, buffers, images) = gltf::import(path)?;
+        let scene = gltf.scenes().next().unwrap();
+
+        let objs: Vec<_> = scene
+            .nodes()
+            .filter_map(|node| Self::parse_node(gpu, store, node, &buffers, &images))
+            .collect();
+
+        Ok(Object::empty().with_children(objs))
+    }
+
     pub fn load_obj(gpu: &Gpu, store: &mut DataStore, path: &Path) -> Result<Object, LoadError> {
         let (models, materials) = tobj::load_obj(&path, &tobj::GPU_LOAD_OPTIONS)?;
         let materials = materials.unwrap();
@@ -136,11 +269,12 @@ impl Model {
                 "src/res/star.png"
             };
 
-            let material = Box::new(SimpleMaterial::new(
-                &gpu,
-                &Path::new(texture_path),
-                &Path::new(normal_path),
-            ));
+            let texture_bytes = std::fs::read(texture_path).unwrap();
+            let texture_rgba = image::load_from_memory(&texture_bytes).unwrap().to_rgba8();
+            let normal_bytes = std::fs::read(normal_path).unwrap();
+            let normal_rgba = image::load_from_memory(&texture_bytes).unwrap().to_rgba8();
+
+            let material = Box::new(SimpleMaterial::new(&gpu, &texture_rgba, &normal_rgba));
 
             for point_idx in model.mesh.indices.chunks_exact(3) {
                 let (a, b, c) = Self::fill_tangents(
